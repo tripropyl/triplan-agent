@@ -310,10 +310,25 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
-Create empty modules so the crate compiles:
+Create these empty module files so the crate compiles. Each file should contain the same marker comment:
 
-```bash
-for f in config context db mcp model provider runtime shadowbox skills tools; do printf '' > "src/$f.rs"; done
+```rust
+// Populated by later implementation tasks.
+```
+
+Files:
+
+```text
+/Users/BaiGod/Documents/agent-ease/src/config.rs
+/Users/BaiGod/Documents/agent-ease/src/context.rs
+/Users/BaiGod/Documents/agent-ease/src/db.rs
+/Users/BaiGod/Documents/agent-ease/src/mcp.rs
+/Users/BaiGod/Documents/agent-ease/src/model.rs
+/Users/BaiGod/Documents/agent-ease/src/provider.rs
+/Users/BaiGod/Documents/agent-ease/src/runtime.rs
+/Users/BaiGod/Documents/agent-ease/src/shadowbox.rs
+/Users/BaiGod/Documents/agent-ease/src/skills.rs
+/Users/BaiGod/Documents/agent-ease/src/tools.rs
 ```
 
 - [ ] **Step 6: Run test to verify CLI skeleton passes**
@@ -983,7 +998,7 @@ async fn task_lease_is_exclusive() {
 Run:
 
 ```bash
-cargo test --test event_store checkpoint_round_trips_projection task_lease_is_exclusive -- --nocapture
+cargo test --test event_store -- --nocapture
 ```
 
 Expected: FAIL because `CheckpointStore` and `TaskStore` are missing.
@@ -1226,7 +1241,7 @@ impl TaskStore {
 Run:
 
 ```bash
-cargo test --test event_store checkpoint_round_trips_projection task_lease_is_exclusive -- --nocapture
+cargo test --test event_store -- --nocapture
 ```
 
 Expected: PASS.
@@ -1556,6 +1571,10 @@ impl Shadowbox {
         Ok(candidate)
     }
 
+    pub fn workspace_root(&self) -> &Path {
+        &self.workspace_root
+    }
+
     pub fn ensure_inside_workspace(&self, path: &Path) -> Result<()> {
         let root = self.workspace_root.canonicalize()?;
         let absolute = if path.exists() {
@@ -1633,21 +1652,26 @@ impl Tool for SearchTool {
             .as_str()
             .ok_or_else(|| AgentError::Runtime("search requires query".to_string()))?;
         let mut matches = Vec::new();
-        for entry in WalkDir::new(".").into_iter().filter_map(std::result::Result::ok) {
-            let path = entry.path();
+        for entry in WalkDir::new(shadowbox.workspace_root())
+            .into_iter()
+            .filter_map(std::result::Result::ok)
+        {
+            let full_path = entry.path();
             if !entry.file_type().is_file() {
                 continue;
             }
-            if path.components().any(|component| component.as_os_str() == ".git") {
+            if full_path.components().any(|component| component.as_os_str() == ".git") {
                 continue;
             }
-            let full_path = shadowbox.resolve_workspace_path(&path.to_string_lossy())?;
             let Ok(content) = tokio::fs::read_to_string(&full_path).await else {
                 continue;
             };
             if content.contains(query) {
+                let relative_path = full_path
+                    .strip_prefix(shadowbox.workspace_root())
+                    .unwrap_or(full_path);
                 matches.push(json!({
-                    "path": path.to_string_lossy(),
+                    "path": relative_path.to_string_lossy(),
                     "snippet": shadowbox.truncate_output(&content),
                 }));
             }
@@ -1726,7 +1750,7 @@ async fn file_edit_rejects_stale_version() {
 Run:
 
 ```bash
-cargo test --test tools bash_runs_with_timeout_and_output file_edit_rejects_stale_version -- --nocapture
+cargo test --test tools -- --nocapture
 ```
 
 Expected: FAIL because `BashTool`, `FileState`, and `FileEditTool` are missing.
@@ -1857,7 +1881,7 @@ sqlx::query(
 Run:
 
 ```bash
-cargo test --test tools bash_runs_with_timeout_and_output file_edit_rejects_stale_version -- --nocapture
+cargo test --test tools -- --nocapture
 ```
 
 Expected: PASS.
@@ -1993,14 +2017,13 @@ fn parse_skill_metadata(content: &str, path: PathBuf) -> Result<SkillMetadata> {
     let (front_matter, _) = rest
         .split_once("---")
         .ok_or_else(|| AgentError::Config("skill missing closing front matter".to_string()))?;
-    let value: toml::Value = front_matter.parse::<toml::Value>()?;
-    let name = value
-        .get("name")
-        .and_then(|value| value.as_str())
+    let name = front_matter
+        .lines()
+        .find_map(|line| line.strip_prefix("name:").map(str::trim))
         .ok_or_else(|| AgentError::Config("skill missing name".to_string()))?;
-    let description = value
-        .get("description")
-        .and_then(|value| value.as_str())
+    let description = front_matter
+        .lines()
+        .find_map(|line| line.strip_prefix("description:").map(str::trim))
         .ok_or_else(|| AgentError::Config("skill missing description".to_string()))?;
     Ok(SkillMetadata {
         name: name.to_string(),
@@ -2488,7 +2511,7 @@ fn status_reports_workspace_after_init() {
 Run:
 
 ```bash
-cargo test --test cli_init doctor_reports_basic_checks status_reports_workspace_after_init -- --nocapture
+cargo test --test cli_init -- --nocapture
 ```
 
 Expected: FAIL because `doctor` and `status` output still use temporary messages.
@@ -2520,7 +2543,7 @@ Keep the existing arms for `Init`, `Chat`, `Run`, and `Events`.
 Run:
 
 ```bash
-cargo test --test cli_init doctor_reports_basic_checks status_reports_workspace_after_init -- --nocapture
+cargo test --test cli_init -- --nocapture
 ```
 
 Expected: PASS.
@@ -2568,7 +2591,7 @@ Run:
 
 ```bash
 tmpdir="$(mktemp -d)"
-cargo run --bin agent --manifest-path /Users/BaiGod/Documents/agent-ease/Cargo.toml -- init --quiet 2>/dev/null || cargo run --bin agent --manifest-path /Users/BaiGod/Documents/agent-ease/Cargo.toml -- init
+cargo build --bin agent --manifest-path /Users/BaiGod/Documents/agent-ease/Cargo.toml
 cd "$tmpdir"
 /Users/BaiGod/Documents/agent-ease/target/debug/agent init
 /Users/BaiGod/Documents/agent-ease/target/debug/agent status
