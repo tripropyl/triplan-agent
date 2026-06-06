@@ -103,3 +103,24 @@ pub struct EventRecord {
     pub sequence: i64,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointRecord {
+    pub checkpoint_id: Uuid,
+    pub workspace_id: String,
+    pub run_id: String,
+    pub after_sequence: i64,
+    pub projection: Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskRecord {
+    pub task_id: Uuid,
+    pub task_type: String,
+    pub target_run_id: Option<String>,
+    pub status: String,
+    pub priority: i64,
+    pub lease_owner: Option<String>,
+    pub payload: Value,
+}
