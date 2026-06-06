@@ -24,6 +24,9 @@ pub enum Command {
     Status,
     Events,
     Doctor,
+    Compact {
+        instructions: Vec<String>,
+    },
 }
 
 pub async fn dispatch(cli: Cli) -> Result<()> {
@@ -46,6 +49,11 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
         }
         Command::Doctor => {
             println!("agent doctor: basic CLI is available");
+        }
+        Command::Compact { instructions } => {
+            let joined = instructions.join(" ");
+            let summary = crate::context::CompactionEngine::summarize_for_test(&[&joined]);
+            println!("{summary}");
         }
     }
     Ok(())

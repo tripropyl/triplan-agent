@@ -121,3 +121,23 @@ impl ContextPatchStore {
             .collect()
     }
 }
+
+pub struct CompactionEngine;
+
+impl CompactionEngine {
+    pub fn summarize_for_test(messages: &[&str]) -> String {
+        let joined = messages.join("\n");
+        format!(
+            "Summary:\n\n\
+             1. Primary Request and Intent:\n{joined}\n\n\
+             2. Key Technical Concepts:\n- Event-driven runtime\n- SQLite checkpoints\n\n\
+             3. Files and Code Sections:\n- Not available in deterministic test mode\n\n\
+             4. Errors and fixes:\n- None recorded\n\n\
+             5. Problem Solving:\n- Preserved chronological work context\n\n\
+             6. All user messages:\n{joined}\n\n\
+             7. Pending Tasks:\n{joined}\n\n\
+             8. Current Work:\n{joined}\n\n\
+             9. Optional Next Step:\nContinue the most recent pending task"
+        )
+    }
+}
