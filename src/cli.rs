@@ -42,13 +42,20 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
             println!("agent run requested for {agent}: {}", prompt.join(" "));
         }
         Command::Status => {
-            println!("agent runtime status: uninitialized");
+            let cwd = std::env::current_dir()?;
+            let config = crate::config::load_workspace_config(&cwd).await?;
+            println!("workspace: {}", config.workspace_name);
+            println!("default_agent: {}", config.default_agent);
+            println!("default_provider: {}", config.default_provider);
         }
         Command::Events => {
             println!("agent events: unavailable before init");
         }
         Command::Doctor => {
-            println!("agent doctor: basic CLI is available");
+            println!("CLI: ok");
+            println!("SQLite: configured after agent init");
+            println!("MCP: stdio transport planned");
+            println!("Shadowbox: soft sandbox policy enabled after init");
         }
         Command::Compact { instructions } => {
             let joined = instructions.join(" ");
