@@ -1,4 +1,5 @@
 use agent_ease::shadowbox::Shadowbox;
+use agent_ease::skills::SkillRegistry;
 use agent_ease::tools::{BashTool, FileEditTool, FileReadTool, FileState, SearchTool, Tool};
 use serde_json::json;
 
@@ -73,4 +74,24 @@ async fn file_edit_rejects_stale_version() {
         .await
         .expect_err("stale edit rejected");
     assert!(err.to_string().contains("file changed since read"));
+}
+
+#[tokio::test]
+async fn skill_registry_loads_metadata_progressively() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let skill_dir = temp.path().join(".agents/skills/review");
+    tokio::fs::create_dir_all(&skill_dir).await.expect("mkdir");
+    tokio::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: review\ndescription: Review code changes.\n---\n\nFull instructions.",
+    )
+    .await
+    .expect("write skill");
+
+    let registry = SkillRegistry::scan(temp.path()).await.expect("scan");
+    assert_eq!(registry.metadata()[0].name, "review");
+    assert_eq!(
+        registry.load("review").await.expect("load").body.trim(),
+        "Full instructions."
+    );
 }
