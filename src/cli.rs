@@ -29,7 +29,8 @@ pub enum Command {
 pub async fn dispatch(cli: Cli) -> Result<()> {
     match cli.command.unwrap_or(Command::Status) {
         Command::Init => {
-            println!("agent init is not implemented yet");
+            crate::config::init_workspace(&std::env::current_dir()?).await?;
+            println!("initialized agent workspace");
         }
         Command::Chat { agent } => {
             println!("agent chat requested for {agent}");
