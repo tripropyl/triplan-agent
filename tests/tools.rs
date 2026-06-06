@@ -1,3 +1,4 @@
+use agent_ease::mcp::McpRequest;
 use agent_ease::shadowbox::Shadowbox;
 use agent_ease::skills::SkillRegistry;
 use agent_ease::tools::{BashTool, FileEditTool, FileReadTool, FileState, SearchTool, Tool};
@@ -94,4 +95,13 @@ async fn skill_registry_loads_metadata_progressively() {
         registry.load("review").await.expect("load").body.trim(),
         "Full instructions."
     );
+}
+
+#[test]
+fn mcp_request_serializes_json_rpc() {
+    let request = McpRequest::new(1, "tools/list", serde_json::json!({}));
+    let value = serde_json::to_value(request).expect("serialize");
+    assert_eq!(value["jsonrpc"], "2.0");
+    assert_eq!(value["id"], 1);
+    assert_eq!(value["method"], "tools/list");
 }
