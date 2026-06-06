@@ -111,6 +111,39 @@ pub async fn migrate(pool: &SqlitePool) -> Result<()> {
     )
     .execute(pool)
     .await?;
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS context_patches (
+            patch_id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            conversation_id TEXT NOT NULL,
+            target_agent_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            priority INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS agent_messages (
+            message_id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            conversation_id TEXT NOT NULL,
+            from_agent_id TEXT NOT NULL,
+            to_agent_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
