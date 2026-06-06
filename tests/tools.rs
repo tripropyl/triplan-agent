@@ -1,5 +1,5 @@
 use agent_ease::shadowbox::Shadowbox;
-use agent_ease::tools::{FileReadTool, SearchTool, Tool};
+use agent_ease::tools::{BashTool, FileEditTool, FileReadTool, FileState, SearchTool, Tool};
 use serde_json::json;
 
 #[tokio::test]
@@ -41,4 +41,36 @@ async fn search_finds_text_files() {
         .as_str()
         .expect("path")
         .ends_with("a.txt"));
+}
+
+#[tokio::test]
+async fn bash_runs_with_timeout_and_output() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let shadowbox = Shadowbox::new(temp.path());
+    let output = BashTool
+        .call(&shadowbox, json!({"command":"printf hello"}))
+        .await
+        .expect("bash");
+    assert_eq!(output["exit_code"], 0);
+    assert_eq!(output["stdout"], "hello");
+}
+
+#[tokio::test]
+async fn file_edit_rejects_stale_version() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let path = temp.path().join("note.txt");
+    tokio::fs::write(&path, "old").await.expect("write");
+    let shadowbox = Shadowbox::new(temp.path());
+    let state = FileState::snapshot(&path).await.expect("snapshot");
+    tokio::fs::write(&path, "changed")
+        .await
+        .expect("external change");
+    let err = FileEditTool::new(state)
+        .call(
+            &shadowbox,
+            json!({"path":"note.txt","old":"old","new":"new"}),
+        )
+        .await
+        .expect_err("stale edit rejected");
+    assert!(err.to_string().contains("file changed since read"));
 }

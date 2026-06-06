@@ -94,6 +94,23 @@ pub async fn migrate(pool: &SqlitePool) -> Result<()> {
     )
     .execute(pool)
     .await?;
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS tool_invocations (
+            invocation_id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            run_id TEXT,
+            tool_name TEXT NOT NULL,
+            input_json TEXT NOT NULL,
+            output_json TEXT,
+            status TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            completed_at TEXT
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
