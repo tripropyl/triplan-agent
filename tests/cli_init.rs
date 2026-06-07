@@ -32,6 +32,25 @@ fn init_creates_workspace_files() {
 }
 
 #[test]
+fn init_defaults_to_dashscope_deepseek_flash() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    Command::cargo_bin("agent")
+        .expect("agent binary exists")
+        .current_dir(temp.path())
+        .arg("init")
+        .assert()
+        .success();
+
+    let config =
+        std::fs::read_to_string(temp.path().join(".agents/config.toml")).expect("workspace config");
+    let default_agent = std::fs::read_to_string(temp.path().join(".agents/agents/default.toml"))
+        .expect("default agent");
+
+    assert!(config.contains("default_provider = \"dashscope\""));
+    assert!(default_agent.contains("model = \"deepseek-v4-flash\""));
+}
+
+#[test]
 fn doctor_reports_basic_checks() {
     let temp = tempfile::tempdir().expect("tempdir");
     let mut cmd = Command::cargo_bin("agent").expect("agent binary exists");

@@ -351,56 +351,67 @@ impl TaskStore {
         worker_id: &str,
         lease_seconds: i64,
     ) -> Result<Option<TaskRecord>> {
-        let mut tx = self.pool.begin().await?;
-        let row = sqlx::query(
-            r#"
-            SELECT task_id, task_type, target_run_id, status, priority, lease_owner, payload_json
-            FROM tasks
-            WHERE status = 'pending'
-            ORDER BY priority DESC, created_at ASC
-            LIMIT 1
-            "#,
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
-        let Some(row) = row else {
-            tx.commit().await?;
-            return Ok(None);
-        };
-
-        let task_id_text: String = row.try_get("task_id")?;
         let expires = Utc::now() + chrono::Duration::seconds(lease_seconds);
-        let update = sqlx::query(
+        let row = sqlx::query(
             r#"
             UPDATE tasks
             SET status = 'leased',
                 lease_owner = ?,
                 lease_expires_at = ?,
                 attempt_count = attempt_count + 1
-            WHERE task_id = ? AND status = 'pending'
+            WHERE task_id = (
+                SELECT task_id
+                FROM tasks
+                WHERE status = 'pending'
+                ORDER BY priority DESC, created_at ASC
+                LIMIT 1
+            )
+            RETURNING task_id, task_type, target_run_id, status, priority, lease_owner, payload_json
             "#,
         )
         .bind(worker_id)
         .bind(expires.to_rfc3339())
-        .bind(&task_id_text)
-        .execute(&mut *tx)
+        .fetch_optional(&self.pool)
         .await?;
-        tx.commit().await?;
-
-        if update.rows_affected() == 0 {
+        let Some(row) = row else {
             return Ok(None);
-        }
+        };
 
+        let task_id_text: String = row.try_get("task_id")?;
         let payload_json: String = row.try_get("payload_json")?;
         Ok(Some(TaskRecord {
             task_id: parse_uuid(task_id_text, "task_id")?,
             task_type: row.try_get("task_type")?,
             target_run_id: row.try_get("target_run_id")?,
-            status: "leased".to_string(),
+            status: row.try_get("status")?,
             priority: row.try_get("priority")?,
-            lease_owner: Some(worker_id.to_string()),
+            lease_owner: row.try_get("lease_owner")?,
             payload: serde_json::from_str(&payload_json)?,
         }))
+    }
+
+    pub async fn complete(&self, task_id: Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE tasks
+            SET status = 'completed',
+                lease_expires_at = NULL
+            WHERE task_id = ? AND status = 'leased'
+            "#,
+        )
+        .bind(task_id.to_string())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn count_by_status(&self, status: &str) -> Result<i64> {
+        Ok(
+            sqlx::query_scalar("SELECT COUNT(*) FROM tasks WHERE status = ?")
+                .bind(status)
+                .fetch_one(&self.pool)
+                .await?,
+        )
     }
 }
 

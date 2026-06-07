@@ -18,7 +18,7 @@ impl Default for WorkspaceConfig {
         Self {
             workspace_name: "agent-workspace".to_string(),
             default_agent: "default".to_string(),
-            default_provider: "mock".to_string(),
+            default_provider: "dashscope".to_string(),
             database_path: ".agents/agent.db".to_string(),
         }
     }
@@ -57,7 +57,7 @@ pub async fn init_workspace(workspace: &Path) -> Result<()> {
             description: "General-purpose local agent.".to_string(),
             system_prompt: "You are a careful local agent working inside this workspace."
                 .to_string(),
-            model: "mock".to_string(),
+            model: "deepseek-v4-flash".to_string(),
             tools: vec![
                 "bash".to_string(),
                 "file_read".to_string(),
@@ -81,7 +81,7 @@ pub async fn init_workspace(workspace: &Path) -> Result<()> {
             description: "Lead agent that coordinates worker agents.".to_string(),
             system_prompt: "You coordinate work, delegate carefully, and summarize results."
                 .to_string(),
-            model: "mock".to_string(),
+            model: "deepseek-v4-flash".to_string(),
             tools: vec![
                 "agent_message".to_string(),
                 "compact".to_string(),
