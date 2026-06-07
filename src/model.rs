@@ -49,9 +49,13 @@ impl EventType {
             Self::RunFailed => "run_failed",
         }
     }
+}
 
-    pub fn from_str(value: &str) -> Option<Self> {
-        Some(match value {
+impl std::str::FromStr for EventType {
+    type Err = String;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(match value {
             "user_message" => Self::UserMessage,
             "run_requested" => Self::RunRequested,
             "run_started" => Self::RunStarted,
@@ -70,7 +74,7 @@ impl EventType {
             "run_cancelled" => Self::RunCancelled,
             "run_completed" => Self::RunCompleted,
             "run_failed" => Self::RunFailed,
-            _ => return None,
+            _ => return Err(format!("unknown event type: {value}")),
         })
     }
 }

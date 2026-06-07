@@ -157,6 +157,10 @@ impl EventStore {
         Self { pool }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "event append mirrors immutable event log columns in this foundation slice"
+    )]
     pub async fn append_event(
         &self,
         workspace_id: &str,
@@ -416,9 +420,9 @@ fn row_to_checkpoint(row: sqlx::sqlite::SqliteRow) -> Result<CheckpointRecord> {
 
 fn row_to_event(row: sqlx::sqlite::SqliteRow) -> Result<EventRecord> {
     let event_type_text: String = row.try_get("event_type")?;
-    let event_type = EventType::from_str(&event_type_text).ok_or_else(|| {
-        AgentError::Runtime(format!("unknown event type in database: {event_type_text}"))
-    })?;
+    let event_type = event_type_text
+        .parse::<EventType>()
+        .map_err(AgentError::Runtime)?;
     let payload_json: String = row.try_get("payload_json")?;
     let created_at: String = row.try_get("created_at")?;
 
