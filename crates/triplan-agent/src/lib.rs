@@ -3,6 +3,7 @@ pub mod config;
 pub mod context;
 pub mod db;
 pub mod error;
+pub mod history;
 pub mod mcp;
 pub mod model;
 pub mod provider;

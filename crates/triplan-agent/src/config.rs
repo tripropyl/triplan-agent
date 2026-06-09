@@ -91,6 +91,10 @@ impl RuntimePaths {
     pub fn shadowbox_path(&self) -> PathBuf {
         self.user_agents_dir.join("shadowbox.toml")
     }
+
+    pub fn conversation_history_dir(&self) -> PathBuf {
+        self.user_root_dir.join("conversations")
+    }
 }
 
 pub fn runtime_paths() -> Result<RuntimePaths> {
@@ -153,6 +157,7 @@ pub async fn init_user_data_at(paths: &RuntimePaths) -> Result<()> {
     fs::create_dir_all(root.join("agents")).await?;
     fs::create_dir_all(root.join("skills")).await?;
     fs::create_dir_all(root.join("prompts/compact")).await?;
+    fs::create_dir_all(paths.conversation_history_dir()).await?;
 
     write_toml_if_missing(&paths.user_config_path(), &WorkspaceConfig::default()).await?;
     write_if_missing(&paths.providers_path(), DEFAULT_PROVIDERS).await?;

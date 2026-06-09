@@ -59,11 +59,80 @@ fn init_creates_workspace_files() {
         .is_file());
     assert!(paths.user_agents.join("mcp.toml").is_file());
     assert!(paths.user_agents.join("shadowbox.toml").is_file());
+    assert!(paths.user_root.join("conversations").is_dir());
     assert!(paths.app_data.join("checkpoints.sqlite3").is_file());
     assert!(paths
         .app_data
         .join("resources/prompts/compact/default.md")
         .is_file());
+}
+
+#[test]
+fn history_add_and_recent_use_user_conversation_markdown() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let paths = isolated_paths(&temp);
+
+    isolated_cmd(&paths)
+        .args([
+            "history",
+            "add",
+            "--workspace",
+            "workspace-1",
+            "--conversation",
+            "conversation-1",
+            "Need",
+            "recent",
+            "context",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("history:"));
+
+    let history_path = paths
+        .user_root
+        .join("conversations/workspace-1/conversation-1.md");
+    assert!(history_path.is_file());
+
+    isolated_cmd(&paths)
+        .args(["history", "recent", "--limit", "1"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("# Recent Conversation History"))
+        .stdout(predicate::str::contains("Need recent context"));
+}
+
+#[test]
+fn run_records_user_prompt_in_history() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let paths = isolated_paths(&temp);
+
+    isolated_cmd(&paths)
+        .current_dir(temp.path())
+        .arg("init")
+        .assert()
+        .success();
+
+    isolated_cmd(&paths)
+        .current_dir(temp.path())
+        .args([
+            "run",
+            "--conversation",
+            "build-plan",
+            "Use",
+            "recent",
+            "history",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("history:"));
+
+    let content = std::fs::read_to_string(
+        paths
+            .user_root
+            .join("conversations/triplan-agent/build-plan.md"),
+    )
+    .expect("history content");
+    assert!(content.contains("Use recent history"));
 }
 
 #[test]

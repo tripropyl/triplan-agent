@@ -84,6 +84,7 @@ A `Workspace` is a project folder and runtime boundary. User-owned agent configu
 - `~/.triplan-agent/.agents/mcp.toml`
 - `~/.triplan-agent/.agents/prompts/compact/*.md`
 - `~/.triplan-agent/.agents/shadowbox.toml`
+- `~/.triplan-agent/conversations/<workspace>/<conversation>.md`
 - `APP_DATA/triplan-agent/checkpoints.sqlite3`
 - `APP_DATA/triplan-agent/resources/`
 - default provider and model settings
@@ -417,7 +418,12 @@ APP_DATA/triplan-agent/
         default.md
     mcp.toml
     shadowbox.toml
+  conversations/
+    <workspace>/
+      <conversation>.md
 ```
+
+Conversation Markdown is user-owned history. Recent files are selected by modification time and can be injected as context before a run, similar in spirit to local coding-agent conversation recall.
 
 Debug commands should support prompt inspection, event tailing, checkpoint inspection, context patch inspection, tool audit inspection, and JSON output.
 
@@ -514,6 +520,7 @@ CLI smoke tests:
 v0.1 is acceptable when it can prove:
 
 - A workspace can initialize user data under `~/.triplan-agent/.agents` and SQLite runtime state under APP_DATA.
+- User conversation history can be written as Markdown under `~/.triplan-agent/conversations` and read back for recent-context injection.
 - At least two agent profiles can be configured.
 - CLI can start a conversation and a run.
 - Agent can call bash, file, search, skill, compact, and stdio MCP bridge.

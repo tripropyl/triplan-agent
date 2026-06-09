@@ -3,6 +3,7 @@ use serde_json::json;
 
 use crate::db::{connect_sqlite, migrate, ClarificationStore};
 use crate::error::Result;
+use crate::history::ConversationHistoryStore;
 use crate::tools::{ClarifyTool, ControlTool, ControlToolContext};
 
 #[derive(Debug, Parser)]
@@ -26,6 +27,8 @@ pub enum Command {
     Run {
         #[arg(long, default_value = "default")]
         agent: String,
+        #[arg(long, default_value = "default")]
+        conversation: String,
         prompt: Vec<String>,
     },
     Status,
@@ -38,6 +41,10 @@ pub enum Command {
         #[command(subcommand)]
         command: ClarifyCommand,
     },
+    History {
+        #[command(subcommand)]
+        command: HistoryCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -45,6 +52,38 @@ pub enum ClarifyCommand {
     Request(ClarifyRequestArgs),
     List(ClarifyListArgs),
     Answer(ClarifyAnswerArgs),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum HistoryCommand {
+    Add(HistoryAddArgs),
+    List(HistoryListArgs),
+    Recent(HistoryRecentArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct HistoryAddArgs {
+    #[arg(long, default_value = "triplan-agent")]
+    workspace: String,
+    #[arg(long, default_value = "default")]
+    conversation: String,
+    #[arg(long, default_value = "user")]
+    role: String,
+    message: Vec<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct HistoryListArgs {
+    #[arg(long, default_value_t = 20)]
+    limit: usize,
+}
+
+#[derive(Debug, Args)]
+pub struct HistoryRecentArgs {
+    #[arg(long, default_value_t = 3)]
+    limit: usize,
+    #[arg(long, default_value_t = 12000)]
+    max_bytes: usize,
 }
 
 #[derive(Debug, Args)]
@@ -96,8 +135,22 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
         Command::Chat { agent } => {
             println!("agent chat requested for {agent}");
         }
-        Command::Run { agent, prompt } => {
-            println!("agent run requested for {agent}: {}", prompt.join(" "));
+        Command::Run {
+            agent,
+            conversation,
+            prompt,
+        } => {
+            let prompt = prompt.join(" ");
+            println!("agent run requested for {agent}: {prompt}");
+            if !prompt.trim().is_empty() {
+                let paths = crate::config::runtime_paths()?;
+                let config = crate::config::load_user_config_from(&paths).await?;
+                let history = ConversationHistoryStore::new(&paths);
+                let path = history
+                    .append_message(&config.workspace_name, &conversation, "user", &prompt)
+                    .await?;
+                println!("history: {}", path.display());
+            }
         }
         Command::Status => {
             let paths = crate::config::runtime_paths()?;
@@ -129,6 +182,38 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
         }
         Command::Clarify { command } => {
             dispatch_clarify(command).await?;
+        }
+        Command::History { command } => {
+            dispatch_history(command).await?;
+        }
+    }
+    Ok(())
+}
+
+async fn dispatch_history(command: HistoryCommand) -> Result<()> {
+    let paths = crate::config::runtime_paths()?;
+    let store = ConversationHistoryStore::new(&paths);
+    match command {
+        HistoryCommand::Add(args) => {
+            let message = args.message.join(" ");
+            let path = store
+                .append_message(&args.workspace, &args.conversation, &args.role, &message)
+                .await?;
+            println!("history: {}", path.display());
+        }
+        HistoryCommand::List(args) => {
+            let entries = store.recent_entries(args.limit)?;
+            if entries.is_empty() {
+                println!("no conversation history");
+            } else {
+                for entry in entries {
+                    println!("{}", entry.path.display());
+                }
+            }
+        }
+        HistoryCommand::Recent(args) => {
+            let context = store.recent_context(args.limit, args.max_bytes).await?;
+            print!("{context}");
         }
     }
     Ok(())

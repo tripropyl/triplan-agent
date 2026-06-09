@@ -34,17 +34,27 @@ APP_DATA/triplan-agent/
     `-- prompts/
 
 ~/.triplan-agent/
-`-- .agents/
-    |-- config.toml
-    |-- providers.toml
-    |-- mcp.toml
-    |-- shadowbox.toml
-    |-- agents/
-    |-- prompts/
-    `-- skills/
+|-- .agents/
+|   |-- config.toml
+|   |-- providers.toml
+|   |-- mcp.toml
+|   |-- shadowbox.toml
+|   |-- agents/
+|   |-- prompts/
+|   `-- skills/
+`-- conversations/
+    `-- <workspace>/
+        `-- <conversation>.md
 ```
 
 `APP_DATA` follows the host platform conventions, such as `~/Library/Application Support/triplan-agent` on macOS, `$XDG_DATA_HOME/triplan-agent` or `~/.local/share/triplan-agent` on Linux, and `%APPDATA%\triplan-agent` on Windows. Tests and automation can override these roots with `TRIPLAN_AGENT_APP_DATA` and `TRIPLAN_AGENT_HOME`.
+
+Conversation Markdown can be recorded and recalled for context injection:
+
+```bash
+triplan-agent history add --workspace triplan-agent --conversation default "Important user preference"
+triplan-agent history recent --limit 3 --max-bytes 12000
+```
 
 ## CLI Builds
 
