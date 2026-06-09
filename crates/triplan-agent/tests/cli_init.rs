@@ -206,6 +206,41 @@ fn workspace_shortcut_lazily_initializes_and_prompts_for_api_key() {
 }
 
 #[test]
+fn provider_api_key_env_secret_value_is_reported_without_leaking_secret() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let paths = isolated_paths(&temp);
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    isolated_cmd(&paths)
+        .current_dir(temp.path())
+        .arg("init")
+        .assert()
+        .success();
+    std::fs::write(
+        paths.user_agents.join("providers.toml"),
+        r#"[providers.dashscope]
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+api_key_env = "sk-test"
+"#,
+    )
+    .expect("providers");
+
+    let mut cmd = Command::cargo_bin("triplan").expect("triplan binary exists");
+    cmd.current_dir(temp.path())
+        .env("TRIPLAN_AGENT_HOME", &paths.user_root)
+        .env("TRIPLAN_AGENT_APP_DATA", &paths.app_data)
+        .arg(&workspace)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "`api_key_env` should be an environment variable name",
+        ))
+        .stdout(predicate::str::contains("DASHSCOPE_API_KEY"))
+        .stdout(predicate::str::contains("sk-test").not());
+}
+
+#[test]
 fn init_defaults_to_dashscope_deepseek_flash() {
     let temp = tempfile::tempdir().expect("tempdir");
     let paths = isolated_paths(&temp);

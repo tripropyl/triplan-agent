@@ -337,6 +337,11 @@ enum ProviderResolution {
         key_env: String,
         model: String,
     },
+    MisconfiguredCredential {
+        provider_name: String,
+        suggested_key_env: String,
+        model: String,
+    },
 }
 
 async fn dispatch_run(args: RunArgs) -> Result<()> {
@@ -479,6 +484,43 @@ async fn dispatch_run(args: RunArgs) -> Result<()> {
             }
             return Ok(());
         }
+        ProviderResolution::MisconfiguredCredential {
+            provider_name,
+            suggested_key_env,
+            model,
+        } => {
+            let setup =
+                credential_config_error_message(&provider_name, &suggested_key_env, &model, &paths);
+            if args.output_format == OutputFormat::Text {
+                println!("{setup}");
+            } else if args.output_format == OutputFormat::StreamJson {
+                write_json_line(json!({
+                    "type": "error",
+                    "code": "misconfigured_credential",
+                    "provider": provider_name,
+                    "suggested_api_key_env": suggested_key_env,
+                    "model": model,
+                    "message": setup,
+                }))?;
+                write_json_line(json!({
+                    "type": "run_completed",
+                    "status": "misconfigured_credential",
+                }))?;
+            } else {
+                println!(
+                    "{}",
+                    serde_json::to_string(&json!({
+                        "type": "run_completed",
+                        "status": "misconfigured_credential",
+                        "provider": provider_name,
+                        "suggested_api_key_env": suggested_key_env,
+                        "model": model,
+                        "message": setup,
+                    }))?
+                );
+            }
+            return Ok(());
+        }
     };
 
     let request = model_request(&paths, &args.agent, &prompt, &resolved.model).await?;
@@ -536,18 +578,27 @@ async fn resolve_provider(
     let provider_name = provider_override.unwrap_or(default_provider).to_string();
     let endpoint = crate::config::load_provider_endpoint_from(paths, &provider_name).await?;
     let model = model_override.unwrap_or(&agent.model).to_string();
-    let api_key = match env::var(&endpoint.api_key_env) {
+    let key_env = endpoint.api_key_env.trim().to_string();
+    if looks_like_api_key_value(&key_env) {
+        return Ok(ProviderResolution::MisconfiguredCredential {
+            suggested_key_env: suggested_api_key_env(&provider_name),
+            provider_name,
+            model,
+        });
+    }
+
+    let api_key = match env::var(&key_env) {
         Ok(value) if !value.trim().is_empty() => value,
         _ if require_credentials => {
             return Err(AgentError::Config(format!(
                 "missing {} for provider `{provider_name}`",
-                endpoint.api_key_env
+                key_env
             )));
         }
         _ => {
             return Ok(ProviderResolution::MissingCredential {
                 provider_name,
-                key_env: endpoint.api_key_env,
+                key_env,
                 model,
             });
         }
@@ -557,6 +608,40 @@ async fn resolve_provider(
         model: model.clone(),
         provider: OpenAiCompatibleProvider::new(provider_name, endpoint.base_url, api_key, model),
     }))
+}
+
+fn looks_like_api_key_value(value: &str) -> bool {
+    let value = value.trim();
+    value.starts_with("sk-")
+        || value.starts_with("sk_")
+        || value.starts_with("Bearer ")
+        || value.starts_with("bailian-")
+        || value.len() > 48
+            && value
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
+}
+
+fn suggested_api_key_env(provider_name: &str) -> String {
+    match provider_name {
+        "dashscope" => "DASHSCOPE_API_KEY".to_string(),
+        "openai" => "OPENAI_API_KEY".to_string(),
+        other => {
+            let mut name = String::new();
+            for ch in other.chars() {
+                if ch.is_ascii_alphanumeric() {
+                    name.push(ch.to_ascii_uppercase());
+                } else {
+                    name.push('_');
+                }
+            }
+            if name.is_empty() {
+                "LLM_API_KEY".to_string()
+            } else {
+                format!("{name}_API_KEY")
+            }
+        }
+    }
 }
 
 async fn load_or_init_user_environment(
@@ -592,6 +677,26 @@ fn credential_setup_message(
            export {key_env}=...\n\
          or add `{key_env}=...` to a .env file in your workspace\n\
          provider config: {}",
+        paths.providers_path().display()
+    )
+}
+
+fn credential_config_error_message(
+    provider_name: &str,
+    suggested_key_env: &str,
+    model: &str,
+    paths: &crate::config::RuntimePaths,
+) -> String {
+    format!(
+        "provider `{provider_name}` credential config looks wrong\n\
+         `api_key_env` should be an environment variable name, not the API key value\n\
+         model: {model}\n\
+         edit provider config:\n\
+           {}\n\
+         set:\n\
+           api_key_env = \"{suggested_key_env}\"\n\
+         then put the real key in this shell or workspace .env:\n\
+           export {suggested_key_env}=...",
         paths.providers_path().display()
     )
 }
