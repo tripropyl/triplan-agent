@@ -68,7 +68,15 @@ triplan-agent run --provider openai --output-format stream-json "Summarize this 
 
 ## CLI Builds
 
-The CLI binary is `triplan-agent`.
+The CLI binaries are `triplan` and `triplan-agent`. `triplan` is the short, user-facing command; `triplan-agent` remains available as the explicit package binary.
+
+Start in the current workspace with lazy initialization:
+
+```bash
+triplan .
+```
+
+If user config is missing, the command creates the default files under `~/.triplan-agent`. If the selected provider has no API key, it prints the expected environment variable and `.env` setup hint.
 
 Local package for the current host:
 

@@ -9,6 +9,10 @@ repository = "https://github.com/tripropyl/triplan-agent"
 name = "triplan-agent"
 path = "src/main.rs"
 
+[[bin]]
+name = "triplan"
+path = "src/bin/triplan.rs"
+
 [lib]
 name = "triplan_agent"
 path = "src/lib.rs"

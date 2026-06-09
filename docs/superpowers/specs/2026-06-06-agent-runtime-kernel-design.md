@@ -427,7 +427,7 @@ Conversation Markdown is user-owned history. Recent files are selected by modifi
 
 Debug commands should support prompt inspection, event tailing, checkpoint inspection, context patch inspection, tool audit inspection, and JSON output.
 
-Interactive and scriptable model runs should support human-readable token streaming with `--stream` and machine-readable newline-delimited events with `--output-format stream-json`.
+Interactive and scriptable model runs should support a short `triplan` command, `triplan .` workspace startup with lazy default initialization, human-readable token streaming with `--stream`, and machine-readable newline-delimited events with `--output-format stream-json`.
 
 `triplan-agent doctor` checks provider credentials, provider protocol compatibility, SQLite writability, MCP startup, skill metadata, shadowbox policy, and shell adapter availability.
 

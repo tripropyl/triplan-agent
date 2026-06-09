@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde_json::json;
 
 use crate::db::{connect_sqlite, migrate, ClarificationStore};
@@ -16,9 +16,30 @@ use crate::provider::{
 };
 use crate::tools::{ClarifyTool, ControlTool, ControlToolContext};
 
+pub async fn run_from_env() -> anyhow::Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+    dispatch(parse_from_env()?).await?;
+    Ok(())
+}
+
+fn parse_from_env() -> anyhow::Result<Cli> {
+    let display_name = env::args()
+        .next()
+        .and_then(|arg| {
+            PathBuf::from(arg)
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())
+        })
+        .unwrap_or_else(|| "triplan".to_string());
+    let display_name: &'static str = Box::leak(display_name.into_boxed_str());
+    let matches = Cli::command().name(display_name).get_matches();
+    Ok(Cli::from_arg_matches(&matches)?)
+}
+
 #[derive(Debug, Parser)]
 #[command(
-    name = "triplan-agent",
     version,
     about = "Ultra-lightweight, high-performance agent runtime kernel"
 )]
@@ -41,6 +62,11 @@ pub struct Cli {
         help = "Output mode: text, one final json object, or newline-delimited stream-json"
     )]
     pub output_format: OutputFormat,
+    #[arg(
+        value_name = "WORKSPACE",
+        help = "Run the default agent in a workspace path, for example: triplan ."
+    )]
+    pub workspace: Option<PathBuf>,
     #[command(subcommand)]
     pub command: Option<Command>,
 }
@@ -175,7 +201,22 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
             model: cli.model,
             stream: cli.stream,
             output_format: cli.output_format,
+            workspace: None,
             prompt: vec![prompt],
+        })
+        .await;
+    }
+
+    if let Some(workspace) = cli.workspace {
+        return dispatch_run(RunArgs {
+            agent: "default".to_string(),
+            conversation: "default".to_string(),
+            provider: cli.provider,
+            model: cli.model,
+            stream: cli.stream || cli.output_format == OutputFormat::Text,
+            output_format: cli.output_format,
+            workspace: Some(workspace),
+            prompt: vec![DEFAULT_WORKSPACE_PROMPT.to_string()],
         })
         .await;
     }
@@ -220,6 +261,7 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
                 model,
                 stream,
                 output_format,
+                workspace: None,
                 prompt,
             })
             .await?;
@@ -278,6 +320,7 @@ struct RunArgs {
     model: Option<String>,
     stream: bool,
     output_format: OutputFormat,
+    workspace: Option<PathBuf>,
     prompt: Vec<String>,
 }
 
@@ -297,6 +340,15 @@ enum ProviderResolution {
 }
 
 async fn dispatch_run(args: RunArgs) -> Result<()> {
+    if let Some(workspace) = &args.workspace {
+        env::set_current_dir(workspace).map_err(|err| {
+            AgentError::Config(format!(
+                "could not enter workspace `{}`: {err}",
+                workspace.display()
+            ))
+        })?;
+    }
+
     let prompt = args.prompt.join(" ");
     let stream = args.stream || args.output_format == OutputFormat::StreamJson;
     let json_lines = args.output_format == OutputFormat::StreamJson;
@@ -307,7 +359,7 @@ async fn dispatch_run(args: RunArgs) -> Result<()> {
         ));
     }
     let paths = crate::config::runtime_paths()?;
-    let config = crate::config::load_user_config_from(&paths).await?;
+    let (config, initialized) = load_or_init_user_environment(&paths).await?;
 
     let history_path = if prompt.trim().is_empty() {
         None
@@ -322,6 +374,13 @@ async fn dispatch_run(args: RunArgs) -> Result<()> {
 
     match args.output_format {
         OutputFormat::Text => {
+            if let Some(workspace) = &args.workspace {
+                println!("workspace: {}", workspace.display());
+            }
+            if initialized {
+                println!("initialized triplan-agent environment");
+                println!("user_config: {}", paths.user_config_dir().display());
+            }
             println!("agent run requested for {}: {prompt}", args.agent);
             if let Some(path) = &history_path {
                 println!("history: {}", path.display());
@@ -334,7 +393,15 @@ async fn dispatch_run(args: RunArgs) -> Result<()> {
                 "agent": &args.agent,
                 "conversation": &args.conversation,
                 "workspace": &config.workspace_name,
+                "workspace_path": args.workspace.as_ref(),
             }))?;
+            if initialized {
+                write_json_line(json!({
+                    "type": "environment_initialized",
+                    "user_config": paths.user_config_dir(),
+                    "app_data": paths.app_data_dir(),
+                }))?;
+            }
             if let Some(path) = &history_path {
                 write_json_line(json!({
                     "type": "history_appended",
@@ -369,7 +436,7 @@ async fn dispatch_run(args: RunArgs) -> Result<()> {
         &args.agent,
         args.provider.as_deref(),
         args.model.as_deref(),
-        stream || args.output_format == OutputFormat::Json,
+        false,
     )
     .await?;
     let resolved = match provider {
@@ -379,16 +446,38 @@ async fn dispatch_run(args: RunArgs) -> Result<()> {
             key_env,
             model,
         } => {
+            let setup = credential_setup_message(&provider_name, &key_env, &model, &paths);
             if args.output_format == OutputFormat::Text {
-                println!(
-                    "model: skipped; set {key_env} for provider `{provider_name}` or pass --provider/--model"
-                );
-                println!("model_name: {model}");
+                println!("{setup}");
                 return Ok(());
             }
-            return Err(AgentError::Config(format!(
-                "missing {key_env} for provider `{provider_name}`"
-            )));
+            if args.output_format == OutputFormat::StreamJson {
+                write_json_line(json!({
+                    "type": "error",
+                    "code": "missing_credential",
+                    "provider": provider_name,
+                    "api_key_env": key_env,
+                    "model": model,
+                    "message": setup,
+                }))?;
+                write_json_line(json!({
+                    "type": "run_completed",
+                    "status": "missing_credential",
+                }))?;
+            } else {
+                println!(
+                    "{}",
+                    serde_json::to_string(&json!({
+                        "type": "run_completed",
+                        "status": "missing_credential",
+                        "provider": provider_name,
+                        "api_key_env": key_env,
+                        "model": model,
+                        "message": setup,
+                    }))?
+                );
+            }
+            return Ok(());
         }
     };
 
@@ -468,6 +557,43 @@ async fn resolve_provider(
         model: model.clone(),
         provider: OpenAiCompatibleProvider::new(provider_name, endpoint.base_url, api_key, model),
     }))
+}
+
+async fn load_or_init_user_environment(
+    paths: &crate::config::RuntimePaths,
+) -> Result<(crate::config::WorkspaceConfig, bool)> {
+    let needs_init = !paths.user_config_path().is_file()
+        || !paths.providers_path().is_file()
+        || !paths.agent_profiles_dir().join("default.toml").is_file();
+    if needs_init {
+        crate::config::init_environment_at(paths).await?;
+        let database_url = crate::config::checkpoint_database_url_for(paths).await?;
+        let pool = connect_sqlite(&database_url).await?;
+        migrate(&pool).await?;
+        pool.close().await;
+        let config = crate::config::load_user_config_from(paths).await?;
+        return Ok((config, true));
+    }
+
+    Ok((crate::config::load_user_config_from(paths).await?, false))
+}
+
+fn credential_setup_message(
+    provider_name: &str,
+    key_env: &str,
+    model: &str,
+    paths: &crate::config::RuntimePaths,
+) -> String {
+    format!(
+        "missing API key for provider `{provider_name}`\n\
+         expected env var: {key_env}\n\
+         model: {model}\n\
+         set it for this shell:\n\
+           export {key_env}=...\n\
+         or add `{key_env}=...` to a .env file in your workspace\n\
+         provider config: {}",
+        paths.providers_path().display()
+    )
 }
 
 async fn model_request(
@@ -597,6 +723,9 @@ fn ancestor_env_files() -> Vec<PathBuf> {
     }
     files
 }
+
+const DEFAULT_WORKSPACE_PROMPT: &str =
+    "Inspect this workspace and summarize what is present, then suggest the next useful action.";
 
 async fn dispatch_history(command: HistoryCommand) -> Result<()> {
     let paths = crate::config::runtime_paths()?;

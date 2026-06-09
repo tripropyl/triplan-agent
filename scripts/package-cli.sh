@@ -2,6 +2,7 @@
 set -euo pipefail
 
 package="triplan-agent"
+alias_binary="triplan"
 target="${1:-}"
 
 if [[ -z "${target}" ]]; then
@@ -24,6 +25,10 @@ if [[ "${target}" == "macos-universal" ]]; then
     "target/x86_64-apple-darwin/release/${package}" \
     "target/aarch64-apple-darwin/release/${package}" \
     -output "${package_dir}/${package}"
+  lipo -create \
+    "target/x86_64-apple-darwin/release/${alias_binary}" \
+    "target/aarch64-apple-darwin/release/${alias_binary}" \
+    -output "${package_dir}/${alias_binary}"
   cp README.md "${package_dir}/"
   tar -C "${dist_root}" -czf "${dist_root}/${artifact}.tar.gz" "${artifact}"
   echo "${dist_root}/${artifact}.tar.gz"
@@ -43,12 +48,14 @@ esac
 artifact="${package}-${version}-${label}"
 package_dir="${dist_root}/${artifact}"
 binary="target/${target}/release/${package}${ext}"
+alias_path="target/${target}/release/${alias_binary}${ext}"
 
 cargo build --release -p "${package}" --target "${target}"
 
 rm -rf "${package_dir}"
 mkdir -p "${package_dir}"
 cp "${binary}" "${package_dir}/"
+cp "${alias_path}" "${package_dir}/"
 cp README.md "${package_dir}/"
 
 if [[ "${archive}" == "zip" ]]; then

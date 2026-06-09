@@ -36,6 +36,15 @@ fn cli_prints_version() {
 }
 
 #[test]
+fn short_binary_prints_version() {
+    let mut cmd = Command::cargo_bin("triplan").expect("triplan binary exists");
+    cmd.arg("--version")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("triplan "));
+}
+
+#[test]
 fn init_creates_workspace_files() {
     let temp = tempfile::tempdir().expect("tempdir");
     let paths = isolated_paths(&temp);
@@ -166,6 +175,34 @@ fn print_shortcut_records_user_prompt_in_history() {
     )
     .expect("history content");
     assert!(content.contains("Use quick print"));
+}
+
+#[test]
+fn workspace_shortcut_lazily_initializes_and_prompts_for_api_key() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let paths = isolated_paths(&temp);
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let mut cmd = Command::cargo_bin("triplan").expect("triplan binary exists");
+    cmd.current_dir(temp.path())
+        .env("TRIPLAN_AGENT_HOME", &paths.user_root)
+        .env("TRIPLAN_AGENT_APP_DATA", &paths.app_data)
+        .arg(&workspace)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "initialized triplan-agent environment",
+        ))
+        .stdout(predicate::str::contains("missing API key"))
+        .stdout(predicate::str::contains("DASHSCOPE_API_KEY"));
+
+    assert!(paths.user_agents.join("config.toml").is_file());
+    assert!(paths.user_agents.join("providers.toml").is_file());
+    assert!(paths
+        .user_root
+        .join("conversations/triplan-agent/default.md")
+        .is_file());
 }
 
 #[test]
