@@ -2,9 +2,14 @@ use agent_ease::provider::{
     LlmProvider, ModelMessage, ModelOutput, ModelRequest, OpenAiCompatibleProvider,
 };
 
+fn load_local_env() {
+    let _ = dotenvy::dotenv();
+}
+
 #[tokio::test]
 #[ignore = "requires OPENAI_API_KEY and spends real OpenAI API tokens"]
 async fn openai_live_chat_completion_returns_text() {
+    load_local_env();
     let api_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY");
     let model = std::env::var("OPENAI_LIVE_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
     let provider = OpenAiCompatibleProvider::new(
@@ -33,6 +38,7 @@ async fn openai_live_chat_completion_returns_text() {
 #[tokio::test]
 #[ignore = "requires DASHSCOPE_API_KEY and spends real DashScope API tokens"]
 async fn dashscope_live_chat_completion_returns_text() {
+    load_local_env();
     let api_key = std::env::var("DASHSCOPE_API_KEY").expect("DASHSCOPE_API_KEY");
     let base_url = std::env::var("DASHSCOPE_BASE_URL")
         .unwrap_or_else(|_| "https://bailian.bangdao-tech.com/compatible-mode/v1".to_string());
