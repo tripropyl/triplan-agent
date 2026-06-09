@@ -49,6 +49,8 @@ APP_DATA/triplan-agent/
 
 `APP_DATA` follows the host platform conventions, such as `~/Library/Application Support/triplan-agent` on macOS, `$XDG_DATA_HOME/triplan-agent` or `~/.local/share/triplan-agent` on Linux, and `%APPDATA%\triplan-agent` on Windows. Tests and automation can override these roots with `TRIPLAN_AGENT_APP_DATA` and `TRIPLAN_AGENT_HOME`; user configuration still stays under the configured `TRIPLAN_AGENT_HOME`.
 
+Provider credentials can be exported in the shell or stored in a local `.env` file. The CLI loads workspace `.env` files as well as `~/.triplan-agent/.env` and `~/.triplan-agent/.agents/.env`; keep `providers.toml` pointing at environment variable names such as `DASHSCOPE_API_KEY`, not raw key values.
+
 Conversation Markdown can be recorded and recalled for context injection:
 
 ```bash

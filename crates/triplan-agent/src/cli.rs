@@ -573,7 +573,7 @@ async fn resolve_provider(
     model_override: Option<&str>,
     require_credentials: bool,
 ) -> Result<ProviderResolution> {
-    load_local_env();
+    load_local_env(paths);
     let agent = crate::config::load_agent_profile_from(paths, agent_name).await?;
     let provider_name = provider_override.unwrap_or(default_provider).to_string();
     let endpoint = crate::config::load_provider_endpoint_from(paths, &provider_name).await?;
@@ -809,11 +809,13 @@ fn write_json_line(value: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-fn load_local_env() {
+fn load_local_env(paths: &crate::config::RuntimePaths) {
     let _ = dotenvy::dotenv();
     for path in ancestor_env_files() {
         let _ = dotenvy::from_path(path);
     }
+    let _ = dotenvy::from_path(paths.user_root_dir().join(".env"));
+    let _ = dotenvy::from_path(paths.user_config_dir().join(".env"));
 }
 
 fn ancestor_env_files() -> Vec<PathBuf> {

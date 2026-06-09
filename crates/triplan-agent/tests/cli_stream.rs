@@ -85,3 +85,77 @@ async fn run_stream_json_outputs_deltas_and_records_assistant_history() {
     assert!(history.contains("**Assistant**"));
     assert!(history.contains("hi there"));
 }
+
+#[tokio::test]
+async fn run_stream_json_loads_api_key_from_user_root_env_file() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let user_root = temp.path().join("home/.triplan-agent");
+    let app_data = temp.path().join("app-data");
+
+    isolated_cmd(&user_root, &app_data)
+        .arg("init")
+        .assert()
+        .success();
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let address = listener.local_addr().expect("local addr");
+    let providers = format!(
+        "[providers.local]\nbase_url = \"http://{address}/v1\"\napi_key_env = \"LOCAL_CREDENTIAL_ENV\"\n"
+    );
+    std::fs::write(user_root.join(".agents/providers.toml"), providers).expect("providers");
+    std::fs::write(
+        user_root.join(".env"),
+        "LOCAL_CREDENTIAL_ENV=fixture-token\n",
+    )
+    .expect("env");
+
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.expect("accept");
+        let mut buffer = [0_u8; 8192];
+        let request_len = socket.read(&mut buffer).await.expect("read request");
+        let request = String::from_utf8_lossy(&buffer[..request_len]);
+        assert!(request
+            .to_ascii_lowercase()
+            .contains("authorization: bearer fixture-token"));
+        let body = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"env \"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\n",
+            "data: [DONE]\n\n"
+        );
+        let response = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ncontent-length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        socket
+            .write_all(response.as_bytes())
+            .await
+            .expect("write response");
+    });
+
+    let command_user_root = user_root.clone();
+    let command_app_data = app_data.clone();
+    let output = tokio::task::spawn_blocking(move || {
+        isolated_cmd(&command_user_root, &command_app_data)
+            .args([
+                "run",
+                "--provider",
+                "local",
+                "--output-format",
+                "stream-json",
+                "hello",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone()
+    })
+    .await
+    .expect("command task");
+    server.await.expect("server task");
+
+    let stdout = String::from_utf8(output).expect("stdout");
+    assert!(stdout.contains("\"delta\":\"env \""));
+    assert!(stdout.contains("\"delta\":\"ok\""));
+}
