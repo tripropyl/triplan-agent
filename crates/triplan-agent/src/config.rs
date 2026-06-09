@@ -381,7 +381,7 @@ Add local compaction preferences here. The built-in default lives in APP_DATA re
 "#;
 
 const DEFAULT_PROVIDERS: &str = r#"[providers.dashscope]
-base_url = "https://bailian.bangdao-tech.com/compatible-mode/v1"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 api_key_env = "DASHSCOPE_API_KEY"
 
 [providers.openai]

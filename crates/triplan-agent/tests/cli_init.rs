@@ -224,6 +224,7 @@ fn init_defaults_to_dashscope_deepseek_flash() {
 
     assert!(config.contains("default_provider = \"dashscope\""));
     assert!(providers.contains("[providers.dashscope]"));
+    assert!(providers.contains("base_url = \"https://dashscope.aliyuncs.com/compatible-mode/v1\""));
     assert!(default_agent.contains("model = \"deepseek-v4-flash\""));
 }
 

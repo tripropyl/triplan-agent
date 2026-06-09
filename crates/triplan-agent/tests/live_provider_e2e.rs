@@ -108,7 +108,7 @@ async fn dashscope_live_chat_completion_returns_text() {
     load_local_env();
     let api_key = std::env::var("DASHSCOPE_API_KEY").expect("DASHSCOPE_API_KEY");
     let base_url = std::env::var("DASHSCOPE_BASE_URL")
-        .unwrap_or_else(|_| "https://bailian.bangdao-tech.com/compatible-mode/v1".to_string());
+        .unwrap_or_else(|_| "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string());
     let model =
         std::env::var("DASHSCOPE_LIVE_MODEL").unwrap_or_else(|_| "deepseek-v4-flash".to_string());
     let provider = OpenAiCompatibleProvider::new("dashscope", base_url, api_key, model.clone());
