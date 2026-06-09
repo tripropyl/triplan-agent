@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     env,
     path::{Path, PathBuf},
 };
@@ -34,6 +35,17 @@ pub struct AgentProfileConfig {
     pub tools: Vec<String>,
     pub skills: Vec<String>,
     pub mcp_servers: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderRegistryConfig {
+    pub providers: BTreeMap<String, ProviderEndpointConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderEndpointConfig {
+    pub base_url: String,
+    pub api_key_env: String,
 }
 
 #[derive(Debug, Clone)]
@@ -260,6 +272,45 @@ pub async fn load_user_config_from(paths: &RuntimePaths) -> Result<WorkspaceConf
 
 pub async fn load_workspace_config(_workspace: &Path) -> Result<WorkspaceConfig> {
     load_user_config().await
+}
+
+pub async fn load_agent_profile_from(
+    paths: &RuntimePaths,
+    agent_name: &str,
+) -> Result<AgentProfileConfig> {
+    let path = paths
+        .agent_profiles_dir()
+        .join(format!("{agent_name}.toml"));
+    let content = fs::read_to_string(&path).await.map_err(|_| {
+        AgentError::Config(format!(
+            "missing agent profile at {}; run triplan-agent init",
+            path.display()
+        ))
+    })?;
+    Ok(toml::from_str(&content)?)
+}
+
+pub async fn load_provider_registry_from(paths: &RuntimePaths) -> Result<ProviderRegistryConfig> {
+    let path = paths.providers_path();
+    let content = fs::read_to_string(&path).await.map_err(|_| {
+        AgentError::Config(format!(
+            "missing provider config at {}; run triplan-agent init",
+            path.display()
+        ))
+    })?;
+    Ok(toml::from_str(&content)?)
+}
+
+pub async fn load_provider_endpoint_from(
+    paths: &RuntimePaths,
+    provider_name: &str,
+) -> Result<ProviderEndpointConfig> {
+    let registry = load_provider_registry_from(paths).await?;
+    registry
+        .providers
+        .get(provider_name)
+        .cloned()
+        .ok_or_else(|| AgentError::Config(format!("unknown provider `{provider_name}`")))
 }
 
 pub async fn checkpoint_database_url() -> Result<String> {

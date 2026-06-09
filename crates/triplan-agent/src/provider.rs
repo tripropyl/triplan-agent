@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -25,9 +26,28 @@ pub enum ModelOutput {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ModelStreamEvent {
+    ContentDelta {
+        delta: String,
+    },
+    ToolCallDelta {
+        name: Option<String>,
+        arguments: Option<String>,
+    },
+}
+
+pub type ModelStreamSink<'a> = dyn FnMut(ModelStreamEvent) -> Result<()> + Send + 'a;
+
 #[async_trait]
 pub trait LlmProvider: Send + Sync + Clone + 'static {
     async fn complete(&self, request: ModelRequest) -> Result<ModelOutput>;
+    async fn stream(
+        &self,
+        request: ModelRequest,
+        sink: &mut ModelStreamSink<'_>,
+    ) -> Result<ModelOutput>;
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +66,17 @@ impl MockProvider {
 #[async_trait]
 impl LlmProvider for MockProvider {
     async fn complete(&self, _request: ModelRequest) -> Result<ModelOutput> {
+        Ok(ModelOutput::Text(self.response.clone()))
+    }
+
+    async fn stream(
+        &self,
+        _request: ModelRequest,
+        sink: &mut ModelStreamSink<'_>,
+    ) -> Result<ModelOutput> {
+        sink(ModelStreamEvent::ContentDelta {
+            delta: self.response.clone(),
+        })?;
         Ok(ModelOutput::Text(self.response.clone()))
     }
 }
@@ -149,6 +180,156 @@ impl LlmProvider for OpenAiCompatibleProvider {
         })?;
         Ok(ModelOutput::Text(content.to_string()))
     }
+
+    async fn stream(
+        &self,
+        request: ModelRequest,
+        sink: &mut ModelStreamSink<'_>,
+    ) -> Result<ModelOutput> {
+        let model = if request.model.trim().is_empty() {
+            self.default_model.clone()
+        } else {
+            request.model
+        };
+        let messages: Vec<Value> = request
+            .messages
+            .into_iter()
+            .map(|message| json!({"role": message.role, "content": message.content}))
+            .collect();
+        let url = format!("{}/chat/completions", self.base_url);
+        let response = self
+            .client
+            .post(url)
+            .bearer_auth(&self.api_key)
+            .json(&json!({
+                "model": model,
+                "messages": messages,
+                "stream": true,
+            }))
+            .send()
+            .await
+            .map_err(|err| AgentError::Runtime(format!("{} request failed: {err}", self.name)))?;
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.map_err(|err| {
+                AgentError::Runtime(format!("{} response body failed: {err}", self.name))
+            })?;
+            return Err(AgentError::Runtime(format!(
+                "{} streaming chat completion failed with status {status}: {}",
+                self.name,
+                redact_sensitive_error(&body)
+            )));
+        }
+
+        let mut content = String::new();
+        let mut tool_name = String::new();
+        let mut tool_arguments = String::new();
+        let mut pending = Vec::<u8>::new();
+        let mut chunks = response.bytes_stream();
+        while let Some(chunk) = chunks.next().await {
+            let chunk = chunk.map_err(|err| {
+                AgentError::Runtime(format!("{} stream chunk failed: {err}", self.name))
+            })?;
+            pending.extend_from_slice(&chunk);
+            while let Some(line_end) = pending.iter().position(|byte| *byte == b'\n') {
+                let line = pending.drain(..=line_end).collect::<Vec<_>>();
+                let line = String::from_utf8_lossy(&line);
+                let line = line.trim();
+                if line.is_empty() || line.starts_with(':') {
+                    continue;
+                }
+                let Some(payload) = line.strip_prefix("data:") else {
+                    continue;
+                };
+                let payload = payload.trim();
+                if payload == "[DONE]" {
+                    return streamed_output(content, tool_name, tool_arguments);
+                }
+                consume_stream_payload(
+                    payload,
+                    &mut content,
+                    &mut tool_name,
+                    &mut tool_arguments,
+                    sink,
+                )?;
+            }
+        }
+
+        if !pending.is_empty() {
+            let line = String::from_utf8_lossy(&pending);
+            let line = line.trim();
+            if let Some(payload) = line.strip_prefix("data:") {
+                let payload = payload.trim();
+                if payload != "[DONE]" {
+                    consume_stream_payload(
+                        payload,
+                        &mut content,
+                        &mut tool_name,
+                        &mut tool_arguments,
+                        sink,
+                    )?;
+                }
+            }
+        }
+
+        streamed_output(content, tool_name, tool_arguments)
+    }
+}
+
+fn consume_stream_payload(
+    payload: &str,
+    content: &mut String,
+    tool_name: &mut String,
+    tool_arguments: &mut String,
+    sink: &mut ModelStreamSink<'_>,
+) -> Result<()> {
+    let value: Value = serde_json::from_str(payload)?;
+    for choice in value["choices"].as_array().into_iter().flatten() {
+        let delta = &choice["delta"];
+        if let Some(text) = delta["content"].as_str() {
+            if !text.is_empty() {
+                content.push_str(text);
+                sink(ModelStreamEvent::ContentDelta {
+                    delta: text.to_string(),
+                })?;
+            }
+        }
+        for tool_call in delta["tool_calls"].as_array().into_iter().flatten() {
+            let function = &tool_call["function"];
+            let name = function["name"].as_str();
+            let arguments = function["arguments"].as_str();
+            if let Some(name) = name {
+                tool_name.push_str(name);
+            }
+            if let Some(arguments) = arguments {
+                tool_arguments.push_str(arguments);
+            }
+            if name.is_some() || arguments.is_some() {
+                sink(ModelStreamEvent::ToolCallDelta {
+                    name: name.map(ToString::to_string),
+                    arguments: arguments.map(ToString::to_string),
+                })?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn streamed_output(
+    content: String,
+    tool_name: String,
+    tool_arguments: String,
+) -> Result<ModelOutput> {
+    if !content.is_empty() {
+        return Ok(ModelOutput::Text(content));
+    }
+    if !tool_name.is_empty() {
+        return Ok(ModelOutput::ToolCall {
+            name: tool_name,
+            arguments: serde_json::from_str(&tool_arguments).unwrap_or_else(|_| json!({})),
+        });
+    }
+    Ok(ModelOutput::Text(String::new()))
 }
 
 fn redact_sensitive_error(body: &str) -> String {

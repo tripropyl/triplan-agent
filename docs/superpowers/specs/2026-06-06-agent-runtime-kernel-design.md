@@ -427,6 +427,8 @@ Conversation Markdown is user-owned history. Recent files are selected by modifi
 
 Debug commands should support prompt inspection, event tailing, checkpoint inspection, context patch inspection, tool audit inspection, and JSON output.
 
+Interactive and scriptable model runs should support human-readable token streaming with `--stream` and machine-readable newline-delimited events with `--output-format stream-json`.
+
 `triplan-agent doctor` checks provider credentials, provider protocol compatibility, SQLite writability, MCP startup, skill metadata, shadowbox policy, and shell adapter availability.
 
 ## Provider Support
@@ -522,7 +524,7 @@ v0.1 is acceptable when it can prove:
 - A workspace can initialize all user-owned configuration under `~/.triplan-agent/.agents` and SQLite runtime state under APP_DATA.
 - User conversation history can be written as Markdown under `~/.triplan-agent/conversations` and read back for recent-context injection.
 - At least two agent profiles can be configured.
-- CLI can start a conversation and a run.
+- CLI can start a conversation and a run with text streaming and `stream-json` output.
 - Agent can call bash, file, search, skill, compact, and stdio MCP bridge.
 - Every tool call has an audit record.
 - CLI can send a message to a running agent.

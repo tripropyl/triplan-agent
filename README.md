@@ -56,6 +56,16 @@ triplan-agent history add --workspace triplan-agent --conversation default "Impo
 triplan-agent history recent --limit 3 --max-bytes 12000
 ```
 
+`run` supports human-readable streaming and machine-readable JSONL streaming:
+
+```bash
+triplan-agent --provider openai --model gpt-4o-mini -p "Summarize this repo"
+triplan-agent run --provider openai --model gpt-4o-mini --stream "Summarize this repo"
+triplan-agent run --provider openai --output-format stream-json "Summarize this repo"
+```
+
+`--output-format json` emits one final JSON object. `--output-format stream-json` emits newline-delimited events such as `run_started`, `content_delta`, `history_appended`, and `run_completed`.
+
 ## CLI Builds
 
 The CLI binary is `triplan-agent`.

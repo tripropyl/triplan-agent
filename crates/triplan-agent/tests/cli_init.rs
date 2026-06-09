@@ -142,6 +142,33 @@ fn run_records_user_prompt_in_history() {
 }
 
 #[test]
+fn print_shortcut_records_user_prompt_in_history() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let paths = isolated_paths(&temp);
+
+    isolated_cmd(&paths)
+        .current_dir(temp.path())
+        .arg("init")
+        .assert()
+        .success();
+
+    isolated_cmd(&paths)
+        .current_dir(temp.path())
+        .args(["-p", "Use quick print"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("agent run requested"));
+
+    let content = std::fs::read_to_string(
+        paths
+            .user_root
+            .join("conversations/triplan-agent/default.md"),
+    )
+    .expect("history content");
+    assert!(content.contains("Use quick print"));
+}
+
+#[test]
 fn init_defaults_to_dashscope_deepseek_flash() {
     let temp = tempfile::tempdir().expect("tempdir");
     let paths = isolated_paths(&temp);
