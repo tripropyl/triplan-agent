@@ -1,5 +1,30 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
+use std::path::PathBuf;
+
+struct IsolatedPaths {
+    user_root: PathBuf,
+    user_agents: PathBuf,
+    app_data: PathBuf,
+}
+
+fn isolated_paths(temp: &tempfile::TempDir) -> IsolatedPaths {
+    let user_root = temp.path().join("home/.triplan-agent");
+    let user_agents = user_root.join(".agents");
+    let app_data = temp.path().join("app-data");
+    IsolatedPaths {
+        user_root,
+        user_agents,
+        app_data,
+    }
+}
+
+fn isolated_cmd(paths: &IsolatedPaths) -> Command {
+    let mut cmd = Command::cargo_bin("triplan-agent").expect("triplan-agent binary exists");
+    cmd.env("TRIPLAN_AGENT_HOME", &paths.user_root)
+        .env("TRIPLAN_AGENT_APP_DATA", &paths.app_data);
+    cmd
+}
 
 #[test]
 fn cli_prints_version() {
@@ -13,49 +38,53 @@ fn cli_prints_version() {
 #[test]
 fn init_creates_workspace_files() {
     let temp = tempfile::tempdir().expect("tempdir");
-    let mut cmd = Command::cargo_bin("triplan-agent").expect("triplan-agent binary exists");
+    let paths = isolated_paths(&temp);
+    let mut cmd = isolated_cmd(&paths);
     cmd.current_dir(temp.path())
         .arg("init")
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "initialized triplan-agent workspace",
+            "initialized triplan-agent environment",
         ));
 
-    assert!(temp.path().join(".triplan-agent/config.toml").is_file());
-    assert!(temp
-        .path()
-        .join(".triplan-agent/agents/lead.toml")
+    assert!(!temp.path().join(".triplan-agent").exists());
+    assert!(paths.user_agents.join("config.toml").is_file());
+    assert!(paths.user_agents.join("providers.toml").is_file());
+    assert!(paths.user_agents.join("agents/lead.toml").is_file());
+    assert!(paths.user_agents.join("agents/default.toml").is_file());
+    assert!(paths
+        .user_agents
+        .join("prompts/compact/default.md")
         .is_file());
-    assert!(temp
-        .path()
-        .join(".triplan-agent/agents/default.toml")
+    assert!(paths.user_agents.join("mcp.toml").is_file());
+    assert!(paths.user_agents.join("shadowbox.toml").is_file());
+    assert!(paths.app_data.join("checkpoints.sqlite3").is_file());
+    assert!(paths
+        .app_data
+        .join("resources/prompts/compact/default.md")
         .is_file());
-    assert!(temp
-        .path()
-        .join(".triplan-agent/prompts/compact/default.md")
-        .is_file());
-    assert!(temp.path().join(".triplan-agent/mcp.toml").is_file());
-    assert!(temp.path().join(".triplan-agent/shadowbox.toml").is_file());
 }
 
 #[test]
 fn init_defaults_to_dashscope_deepseek_flash() {
     let temp = tempfile::tempdir().expect("tempdir");
-    Command::cargo_bin("triplan-agent")
-        .expect("triplan-agent binary exists")
+    let paths = isolated_paths(&temp);
+    isolated_cmd(&paths)
         .current_dir(temp.path())
         .arg("init")
         .assert()
         .success();
 
-    let config = std::fs::read_to_string(temp.path().join(".triplan-agent/config.toml"))
-        .expect("workspace config");
-    let default_agent =
-        std::fs::read_to_string(temp.path().join(".triplan-agent/agents/default.toml"))
-            .expect("default agent");
+    let config =
+        std::fs::read_to_string(paths.user_agents.join("config.toml")).expect("user config");
+    let providers =
+        std::fs::read_to_string(paths.user_agents.join("providers.toml")).expect("providers");
+    let default_agent = std::fs::read_to_string(paths.user_agents.join("agents/default.toml"))
+        .expect("default agent");
 
     assert!(config.contains("default_provider = \"dashscope\""));
+    assert!(providers.contains("[providers.dashscope]"));
     assert!(default_agent.contains("model = \"deepseek-v4-flash\""));
 }
 
@@ -73,17 +102,19 @@ fn doctor_reports_basic_checks() {
 #[test]
 fn status_reports_workspace_after_init() {
     let temp = tempfile::tempdir().expect("tempdir");
-    Command::cargo_bin("triplan-agent")
-        .expect("triplan-agent binary exists")
+    let paths = isolated_paths(&temp);
+    isolated_cmd(&paths)
         .current_dir(temp.path())
         .arg("init")
         .assert()
         .success();
-    Command::cargo_bin("triplan-agent")
-        .expect("triplan-agent binary exists")
+    isolated_cmd(&paths)
         .current_dir(temp.path())
         .arg("status")
         .assert()
         .success()
-        .stdout(predicate::str::contains("workspace: triplan-agent"));
+        .stdout(predicate::str::contains("workspace: triplan-agent"))
+        .stdout(predicate::str::contains("user_data:"))
+        .stdout(predicate::str::contains("app_data:"))
+        .stdout(predicate::str::contains("checkpoint_db:"));
 }

@@ -80,7 +80,8 @@ async fn file_edit_rejects_stale_version() {
 #[tokio::test]
 async fn skill_registry_loads_metadata_progressively() {
     let temp = tempfile::tempdir().expect("tempdir");
-    let skill_dir = temp.path().join(".triplan-agent/skills/review");
+    let agent_dir = temp.path().join(".triplan-agent/.agents");
+    let skill_dir = agent_dir.join("skills/review");
     tokio::fs::create_dir_all(&skill_dir).await.expect("mkdir");
     tokio::fs::write(
         skill_dir.join("SKILL.md"),
@@ -89,7 +90,9 @@ async fn skill_registry_loads_metadata_progressively() {
     .await
     .expect("write skill");
 
-    let registry = SkillRegistry::scan(temp.path()).await.expect("scan");
+    let registry = SkillRegistry::scan_agent_dir(&agent_dir)
+        .await
+        .expect("scan");
     assert_eq!(registry.metadata()[0].name, "review");
     assert_eq!(
         registry.load("review").await.expect("load").body.trim(),

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use walkdir::WalkDir;
 
+use crate::config::{runtime_paths, RuntimePaths};
 use crate::error::{AgentError, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,8 +26,17 @@ pub struct SkillRegistry {
 }
 
 impl SkillRegistry {
-    pub async fn scan(workspace: &Path) -> Result<Self> {
-        let root = workspace.join(".triplan-agent/skills");
+    pub async fn scan(_workspace: &Path) -> Result<Self> {
+        let paths = runtime_paths()?;
+        Self::scan_user_data(&paths).await
+    }
+
+    pub async fn scan_user_data(paths: &RuntimePaths) -> Result<Self> {
+        Self::scan_agent_dir(paths.user_agents_dir()).await
+    }
+
+    pub async fn scan_agent_dir(agent_dir: &Path) -> Result<Self> {
+        let root = agent_dir.join("skills");
         let mut skills = Vec::new();
         if !root.exists() {
             return Ok(Self { skills });

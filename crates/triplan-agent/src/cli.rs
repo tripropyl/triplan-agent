@@ -79,8 +79,19 @@ pub struct ClarifyAnswerArgs {
 pub async fn dispatch(cli: Cli) -> Result<()> {
     match cli.command.unwrap_or(Command::Status) {
         Command::Init => {
-            crate::config::init_workspace(&std::env::current_dir()?).await?;
-            println!("initialized triplan-agent workspace");
+            let paths = crate::config::runtime_paths()?;
+            crate::config::init_environment_at(&paths).await?;
+            let database_url = crate::config::checkpoint_database_url_for(&paths).await?;
+            let pool = connect_sqlite(&database_url).await?;
+            migrate(&pool).await?;
+            pool.close().await;
+            println!("initialized triplan-agent environment");
+            println!("user_data: {}", paths.user_root_dir().display());
+            println!("app_data: {}", paths.app_data_dir().display());
+            println!(
+                "checkpoint_db: {}",
+                paths.checkpoint_database_path().display()
+            );
         }
         Command::Chat { agent } => {
             println!("agent chat requested for {agent}");
@@ -89,20 +100,27 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
             println!("agent run requested for {agent}: {}", prompt.join(" "));
         }
         Command::Status => {
-            let cwd = std::env::current_dir()?;
-            let config = crate::config::load_workspace_config(&cwd).await?;
+            let paths = crate::config::runtime_paths()?;
+            let config = crate::config::load_user_config_from(&paths).await?;
             println!("workspace: {}", config.workspace_name);
             println!("default_agent: {}", config.default_agent);
             println!("default_provider: {}", config.default_provider);
+            println!("user_data: {}", paths.user_root_dir().display());
+            println!("app_data: {}", paths.app_data_dir().display());
+            println!(
+                "checkpoint_db: {}",
+                paths.checkpoint_database_path().display()
+            );
         }
         Command::Events => {
             println!("agent events: unavailable before init");
         }
         Command::Doctor => {
             println!("CLI: ok");
-            println!("SQLite: configured after triplan-agent init");
+            println!("SQLite: stored in APP_DATA after triplan-agent init");
             println!("MCP: stdio transport planned");
-            println!("Shadowbox: soft sandbox policy enabled after init");
+            println!("User data: stored under ~/.triplan-agent/.agents by default");
+            println!("Shadowbox: soft sandbox policy enabled from user config after init");
         }
         Command::Compact { instructions } => {
             let joined = instructions.join(" ");
@@ -172,10 +190,8 @@ async fn dispatch_clarify(command: ClarifyCommand) -> Result<()> {
 }
 
 async fn open_workspace_clarifications() -> Result<(String, ClarificationStore)> {
-    let cwd = std::env::current_dir()?;
-    let config = crate::config::load_workspace_config(&cwd).await?;
-    let database_path = cwd.join(&config.database_path);
-    let database_url = format!("sqlite://{}?mode=rwc", database_path.to_string_lossy());
+    let config = crate::config::load_user_config().await?;
+    let database_url = crate::config::checkpoint_database_url().await?;
     let pool = connect_sqlite(&database_url).await?;
     migrate(&pool).await?;
     Ok((config.workspace_name, ClarificationStore::new(pool)))

@@ -25,7 +25,26 @@ cargo test -p triplan-agent
 cargo run -p triplan-agent -- init
 ```
 
-`triplan-agent init` creates workspace-local state under `.triplan-agent/` in the directory where it is run.
+`triplan-agent init` separates internal runtime state from user-owned agent configuration:
+
+```text
+APP_DATA/triplan-agent/
+|-- checkpoints.sqlite3
+`-- resources/
+    `-- prompts/
+
+~/.triplan-agent/
+`-- .agents/
+    |-- config.toml
+    |-- providers.toml
+    |-- mcp.toml
+    |-- shadowbox.toml
+    |-- agents/
+    |-- prompts/
+    `-- skills/
+```
+
+`APP_DATA` follows the host platform conventions, such as `~/Library/Application Support/triplan-agent` on macOS, `$XDG_DATA_HOME/triplan-agent` or `~/.local/share/triplan-agent` on Linux, and `%APPDATA%\triplan-agent` on Windows. Tests and automation can override these roots with `TRIPLAN_AGENT_APP_DATA` and `TRIPLAN_AGENT_HOME`.
 
 ## CLI Builds
 

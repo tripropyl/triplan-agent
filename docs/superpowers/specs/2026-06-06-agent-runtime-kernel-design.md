@@ -8,7 +8,7 @@ Status: approved for specification
 
 Build a Rust-first, CLI-first, local-first agent runtime kernel for company-owned domain agents. The runtime is not another IDE coding assistant and not a desktop app. It is a minimal but durable agent engine that project teams can configure into their own specialized agents.
 
-The v0.1 product is a single binary CLI with SQLite-backed event sourcing, checkpoint recovery, configurable agent profiles, internal multi-agent communication, cautious built-in tools, `.triplan-agent/skills` support, MCP support, soft sandboxing, and configurable context compaction.
+The v0.1 product is a single binary CLI with SQLite-backed event sourcing, checkpoint recovery, configurable agent profiles, internal multi-agent communication, cautious built-in tools, `~/.triplan-agent/.agents/skills` support, MCP support, soft sandboxing, and configurable context compaction.
 
 The runtime is intended to replace LangGraph-style workflow infrastructure for internal agent applications. It keeps deterministic lifecycle middleware where useful, but moves dynamic context injection to asynchronous reactors that observe the run and produce targeted context patches.
 
@@ -76,15 +76,16 @@ Compaction is event-driven as well. It creates compact boundaries and summary pr
 
 ### Workspace
 
-A `Workspace` is a project folder and runtime boundary. It owns:
+A `Workspace` is a project folder and runtime boundary. User-owned agent configuration lives under `~/.triplan-agent/.agents`, while system-owned runtime state lives under APP_DATA:
 
-- `.triplan-agent/config.toml`
-- `.triplan-agent/agents/*.toml`
-- `.triplan-agent/skills/`
-- `.triplan-agent/mcp.toml`
-- `.triplan-agent/prompts/compact/*.md`
-- `.triplan-agent/shadowbox.toml`
-- SQLite database
+- `~/.triplan-agent/.agents/config.toml`
+- `~/.triplan-agent/.agents/agents/*.toml`
+- `~/.triplan-agent/.agents/skills/`
+- `~/.triplan-agent/.agents/mcp.toml`
+- `~/.triplan-agent/.agents/prompts/compact/*.md`
+- `~/.triplan-agent/.agents/shadowbox.toml`
+- `APP_DATA/triplan-agent/checkpoints.sqlite3`
+- `APP_DATA/triplan-agent/resources/`
 - default provider and model settings
 - workspace-level permissions
 
@@ -243,7 +244,7 @@ v0.1 supports:
 - `micro_compact`: removes or summarizes old tool results without full conversation summarization.
 - `post_compact_restore`: restores necessary working state after compaction.
 
-The default compaction template follows the Claude Code style: preserve user intent, technical concepts, files and code sections, errors and fixes, solved problems, all user messages, pending tasks, current work, and next step. The template is configurable under `.triplan-agent/prompts/compact/`.
+The default compaction template follows the Claude Code style: preserve user intent, technical concepts, files and code sections, errors and fixes, solved problems, all user messages, pending tasks, current work, and next step. The template is configurable under `~/.triplan-agent/.agents/prompts/compact/`.
 
 Compaction emits events such as `compact_requested`, `compact_started`, `compact_completed`, `compact_failed`, and `compact_boundary_created`.
 
@@ -280,7 +281,7 @@ File tools are workspace-bound. `file_edit` must include stale-write protection:
 
 ### Skill
 
-Skills use `.triplan-agent/skills/<name>/SKILL.md` and progressive disclosure:
+Skills use `~/.triplan-agent/.agents/skills/<name>/SKILL.md` and progressive disclosure:
 
 - metadata is loaded first
 - full instructions are loaded only when selected
@@ -396,19 +397,26 @@ triplan-agent doctor
 `triplan-agent init` creates:
 
 ```text
-.triplan-agent/
-  config.toml
-  agents/
-    lead.toml
-    coder.toml
-    reviewer.toml
-  skills/
-  prompts/
-    compact/
-      default.md
-  mcp.toml
-  shadowbox.toml
-  agent.db
+APP_DATA/triplan-agent/
+  checkpoints.sqlite3
+  resources/
+    prompts/
+      compact/
+        default.md
+
+~/.triplan-agent/
+  .agents/
+    config.toml
+    providers.toml
+    agents/
+      default.toml
+      lead.toml
+    skills/
+    prompts/
+      compact/
+        default.md
+    mcp.toml
+    shadowbox.toml
 ```
 
 Debug commands should support prompt inspection, event tailing, checkpoint inspection, context patch inspection, tool audit inspection, and JSON output.
@@ -505,7 +513,7 @@ CLI smoke tests:
 
 v0.1 is acceptable when it can prove:
 
-- A workspace can initialize `.triplan-agent/` and SQLite DB.
+- A workspace can initialize user data under `~/.triplan-agent/.agents` and SQLite runtime state under APP_DATA.
 - At least two agent profiles can be configured.
 - CLI can start a conversation and a run.
 - Agent can call bash, file, search, skill, compact, and stdio MCP bridge.

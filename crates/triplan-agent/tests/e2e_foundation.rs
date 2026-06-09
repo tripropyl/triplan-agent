@@ -1,5 +1,7 @@
 use serde_json::json;
-use triplan_agent::config::{init_workspace, load_workspace_config};
+use triplan_agent::config::{
+    checkpoint_database_url_for, init_environment_at, load_user_config_from, RuntimePaths,
+};
 use triplan_agent::context::{AgentBus, CompactionEngine, ContextPatchStore};
 use triplan_agent::db::{connect_sqlite, migrate, CheckpointStore, EventStore, TaskStore};
 use triplan_agent::mcp::McpRequest;
@@ -12,18 +14,17 @@ use triplan_agent::tools::{BashTool, FileEditTool, FileReadTool, FileState, Sear
 #[tokio::test]
 async fn foundation_runtime_e2e_flow() {
     let temp = tempfile::tempdir().expect("tempdir");
-    init_workspace(temp.path()).await.expect("init workspace");
-    let config = load_workspace_config(temp.path())
-        .await
-        .expect("load config");
+    let paths = RuntimePaths::new(
+        temp.path().join("home/.triplan-agent"),
+        temp.path().join("app-data"),
+    );
+    init_environment_at(&paths).await.expect("init environment");
+    let config = load_user_config_from(&paths).await.expect("load config");
     assert_eq!(config.workspace_name, "triplan-agent");
 
-    let db_url = format!(
-        "sqlite://{}?mode=rwc",
-        temp.path()
-            .join(".triplan-agent/agent.db")
-            .to_string_lossy()
-    );
+    let db_url = checkpoint_database_url_for(&paths)
+        .await
+        .expect("checkpoint database url");
     let pool = connect_sqlite(&db_url).await.expect("pool");
     migrate(&pool).await.expect("migrate");
 
@@ -127,7 +128,7 @@ async fn foundation_runtime_e2e_flow() {
         .expect("bash");
     assert!(bash["stdout"].as_str().expect("stdout").contains("e2e"));
 
-    let skill_dir = temp.path().join(".triplan-agent/skills/review");
+    let skill_dir = paths.user_agents_dir().join("skills/review");
     tokio::fs::create_dir_all(&skill_dir)
         .await
         .expect("skill dir");
@@ -137,7 +138,7 @@ async fn foundation_runtime_e2e_flow() {
     )
     .await
     .expect("skill");
-    let skills = SkillRegistry::scan(temp.path()).await.expect("skills");
+    let skills = SkillRegistry::scan_user_data(&paths).await.expect("skills");
     assert_eq!(skills.metadata()[0].name, "review");
     assert_eq!(
         skills.load("review").await.expect("skill load").body.trim(),

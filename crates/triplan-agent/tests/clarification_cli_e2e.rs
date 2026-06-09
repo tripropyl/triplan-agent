@@ -1,19 +1,27 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
+use std::path::Path;
+
+fn isolated_cmd(user_root: &Path, app_data: &Path) -> Command {
+    let mut cmd = Command::cargo_bin("triplan-agent").expect("triplan-agent binary exists");
+    cmd.env("TRIPLAN_AGENT_HOME", user_root)
+        .env("TRIPLAN_AGENT_APP_DATA", app_data);
+    cmd
+}
 
 #[test]
 fn cli_clarification_request_list_answer_round_trip() {
     let temp = tempfile::tempdir().expect("tempdir");
+    let user_root = temp.path().join("home/.triplan-agent");
+    let app_data = temp.path().join("app-data");
 
-    Command::cargo_bin("triplan-agent")
-        .expect("triplan-agent binary exists")
+    isolated_cmd(&user_root, &app_data)
         .current_dir(temp.path())
         .arg("init")
         .assert()
         .success();
 
-    let request = Command::cargo_bin("triplan-agent")
-        .expect("triplan-agent binary exists")
+    let request = isolated_cmd(&user_root, &app_data)
         .current_dir(temp.path())
         .args([
             "clarify",
@@ -47,8 +55,7 @@ fn cli_clarification_request_list_answer_round_trip() {
         .expect("clarification id")
         .to_string();
 
-    Command::cargo_bin("triplan-agent")
-        .expect("triplan-agent binary exists")
+    isolated_cmd(&user_root, &app_data)
         .current_dir(temp.path())
         .args(["clarify", "list"])
         .assert()
@@ -58,8 +65,7 @@ fn cli_clarification_request_list_answer_round_trip() {
             "Which target should I build first?",
         ));
 
-    Command::cargo_bin("triplan-agent")
-        .expect("triplan-agent binary exists")
+    isolated_cmd(&user_root, &app_data)
         .current_dir(temp.path())
         .args(["clarify", "answer", &clarification_id, "--answer", "cli"])
         .assert()
@@ -67,8 +73,7 @@ fn cli_clarification_request_list_answer_round_trip() {
         .stdout(predicate::str::contains("status: answered"))
         .stdout(predicate::str::contains("run_status: resumed"));
 
-    Command::cargo_bin("triplan-agent")
-        .expect("triplan-agent binary exists")
+    isolated_cmd(&user_root, &app_data)
         .current_dir(temp.path())
         .args(["clarify", "list"])
         .assert()
