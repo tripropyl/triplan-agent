@@ -60,6 +60,12 @@ fn init_creates_workspace_files() {
     assert!(paths.user_agents.join("mcp.toml").is_file());
     assert!(paths.user_agents.join("shadowbox.toml").is_file());
     assert!(paths.user_root.join("conversations").is_dir());
+    assert!(!paths.app_data.join("config.toml").exists());
+    assert!(!paths.app_data.join("providers.toml").exists());
+    assert!(!paths.app_data.join("mcp.toml").exists());
+    assert!(!paths.app_data.join("shadowbox.toml").exists());
+    assert!(!paths.app_data.join("agents").exists());
+    assert!(!paths.app_data.join("skills").exists());
     assert!(paths.app_data.join("checkpoints.sqlite3").is_file());
     assert!(paths
         .app_data
@@ -165,7 +171,10 @@ fn doctor_reports_basic_checks() {
         .arg("doctor")
         .assert()
         .success()
-        .stdout(predicate::str::contains("CLI: ok"));
+        .stdout(predicate::str::contains("CLI: ok"))
+        .stdout(predicate::str::contains(
+            "User config: stored under ~/.triplan-agent/.agents by default",
+        ));
 }
 
 #[test]
@@ -184,6 +193,8 @@ fn status_reports_workspace_after_init() {
         .success()
         .stdout(predicate::str::contains("workspace: triplan-agent"))
         .stdout(predicate::str::contains("user_data:"))
+        .stdout(predicate::str::contains("user_config:"))
+        .stdout(predicate::str::contains("conversation_history:"))
         .stdout(predicate::str::contains("app_data:"))
         .stdout(predicate::str::contains("checkpoint_db:"));
 }

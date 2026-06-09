@@ -76,7 +76,7 @@ Compaction is event-driven as well. It creates compact boundaries and summary pr
 
 ### Workspace
 
-A `Workspace` is a project folder and runtime boundary. User-owned agent configuration lives under `~/.triplan-agent/.agents`, while system-owned runtime state lives under APP_DATA:
+A `Workspace` is a project folder and runtime boundary. User-owned agent configuration lives under `~/.triplan-agent/.agents`, user-owned conversation history lives under `~/.triplan-agent/conversations`, and APP_DATA is reserved for system-owned runtime state and built-in resources:
 
 - `~/.triplan-agent/.agents/config.toml`
 - `~/.triplan-agent/.agents/agents/*.toml`
@@ -423,7 +423,7 @@ APP_DATA/triplan-agent/
       <conversation>.md
 ```
 
-Conversation Markdown is user-owned history. Recent files are selected by modification time and can be injected as context before a run, similar in spirit to local coding-agent conversation recall.
+Conversation Markdown is user-owned history. Recent files are selected by modification time and can be injected as context before a run, similar in spirit to local coding-agent conversation recall. User-editable LLM provider, MCP, skill, agent profile, prompt, and policy configuration must remain under `~/.triplan-agent/.agents`, never APP_DATA.
 
 Debug commands should support prompt inspection, event tailing, checkpoint inspection, context patch inspection, tool audit inspection, and JSON output.
 
@@ -519,7 +519,7 @@ CLI smoke tests:
 
 v0.1 is acceptable when it can prove:
 
-- A workspace can initialize user data under `~/.triplan-agent/.agents` and SQLite runtime state under APP_DATA.
+- A workspace can initialize all user-owned configuration under `~/.triplan-agent/.agents` and SQLite runtime state under APP_DATA.
 - User conversation history can be written as Markdown under `~/.triplan-agent/conversations` and read back for recent-context injection.
 - At least two agent profiles can be configured.
 - CLI can start a conversation and a run.

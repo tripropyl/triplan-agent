@@ -126,6 +126,11 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
             pool.close().await;
             println!("initialized triplan-agent environment");
             println!("user_data: {}", paths.user_root_dir().display());
+            println!("user_config: {}", paths.user_config_dir().display());
+            println!(
+                "conversation_history: {}",
+                paths.conversation_history_dir().display()
+            );
             println!("app_data: {}", paths.app_data_dir().display());
             println!(
                 "checkpoint_db: {}",
@@ -159,6 +164,11 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
             println!("default_agent: {}", config.default_agent);
             println!("default_provider: {}", config.default_provider);
             println!("user_data: {}", paths.user_root_dir().display());
+            println!("user_config: {}", paths.user_config_dir().display());
+            println!(
+                "conversation_history: {}",
+                paths.conversation_history_dir().display()
+            );
             println!("app_data: {}", paths.app_data_dir().display());
             println!(
                 "checkpoint_db: {}",
@@ -170,9 +180,13 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
         }
         Command::Doctor => {
             println!("CLI: ok");
-            println!("SQLite: stored in APP_DATA after triplan-agent init");
+            println!("User config: stored under ~/.triplan-agent/.agents by default");
+            println!(
+                "Conversation history: stored under ~/.triplan-agent/conversations by default"
+            );
+            println!("SQLite: stored in APP_DATA/triplan-agent/checkpoints.sqlite3 after init");
+            println!("System resources: stored under APP_DATA/triplan-agent/resources after init");
             println!("MCP: stdio transport planned");
-            println!("User data: stored under ~/.triplan-agent/.agents by default");
             println!("Shadowbox: soft sandbox policy enabled from user config after init");
         }
         Command::Compact { instructions } => {

@@ -32,7 +32,7 @@ impl SkillRegistry {
     }
 
     pub async fn scan_user_data(paths: &RuntimePaths) -> Result<Self> {
-        Self::scan_agent_dir(paths.user_agents_dir()).await
+        Self::scan_agent_dir(paths.user_config_dir()).await
     }
 
     pub async fn scan_agent_dir(agent_dir: &Path) -> Result<Self> {

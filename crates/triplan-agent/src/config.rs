@@ -64,6 +64,10 @@ impl RuntimePaths {
         &self.user_agents_dir
     }
 
+    pub fn user_config_dir(&self) -> &Path {
+        &self.user_agents_dir
+    }
+
     pub fn app_data_dir(&self) -> &Path {
         &self.app_data_dir
     }
@@ -90,6 +94,22 @@ impl RuntimePaths {
 
     pub fn shadowbox_path(&self) -> PathBuf {
         self.user_agents_dir.join("shadowbox.toml")
+    }
+
+    pub fn agent_profiles_dir(&self) -> PathBuf {
+        self.user_agents_dir.join("agents")
+    }
+
+    pub fn user_skills_dir(&self) -> PathBuf {
+        self.user_agents_dir.join("skills")
+    }
+
+    pub fn user_prompts_dir(&self) -> PathBuf {
+        self.user_agents_dir.join("prompts")
+    }
+
+    pub fn user_compact_prompts_dir(&self) -> PathBuf {
+        self.user_prompts_dir().join("compact")
     }
 
     pub fn conversation_history_dir(&self) -> PathBuf {
@@ -153,16 +173,15 @@ pub async fn init_system_data_at(paths: &RuntimePaths) -> Result<()> {
 }
 
 pub async fn init_user_data_at(paths: &RuntimePaths) -> Result<()> {
-    let root = paths.user_agents_dir();
-    fs::create_dir_all(root.join("agents")).await?;
-    fs::create_dir_all(root.join("skills")).await?;
-    fs::create_dir_all(root.join("prompts/compact")).await?;
+    fs::create_dir_all(paths.agent_profiles_dir()).await?;
+    fs::create_dir_all(paths.user_skills_dir()).await?;
+    fs::create_dir_all(paths.user_compact_prompts_dir()).await?;
     fs::create_dir_all(paths.conversation_history_dir()).await?;
 
     write_toml_if_missing(&paths.user_config_path(), &WorkspaceConfig::default()).await?;
     write_if_missing(&paths.providers_path(), DEFAULT_PROVIDERS).await?;
     write_toml_if_missing(
-        &root.join("agents/default.toml"),
+        &paths.agent_profiles_dir().join("default.toml"),
         &AgentProfileConfig {
             name: "default".to_string(),
             description: "General-purpose local agent.".to_string(),
@@ -187,7 +206,7 @@ pub async fn init_user_data_at(paths: &RuntimePaths) -> Result<()> {
     )
     .await?;
     write_toml_if_missing(
-        &root.join("agents/lead.toml"),
+        &paths.agent_profiles_dir().join("lead.toml"),
         &AgentProfileConfig {
             name: "lead".to_string(),
             description: "Lead agent that coordinates worker agents.".to_string(),
@@ -206,7 +225,7 @@ pub async fn init_user_data_at(paths: &RuntimePaths) -> Result<()> {
     )
     .await?;
     write_if_missing(
-        &root.join("prompts/compact/default.md"),
+        &paths.user_compact_prompts_dir().join("default.md"),
         USER_COMPACT_PROMPT,
     )
     .await?;
