@@ -1,14 +1,14 @@
 # Agent Runtime Kernel Design
 
 Date: 2026-06-06
-Workspace: `/Users/BaiGod/Documents/agent-ease`
+Workspace: `/path/to/triplan-agent`
 Status: approved for specification
 
 ## Summary
 
 Build a Rust-first, CLI-first, local-first agent runtime kernel for company-owned domain agents. The runtime is not another IDE coding assistant and not a desktop app. It is a minimal but durable agent engine that project teams can configure into their own specialized agents.
 
-The v0.1 product is a single binary CLI with SQLite-backed event sourcing, checkpoint recovery, configurable agent profiles, internal multi-agent communication, cautious built-in tools, `.agents/skills` support, MCP support, soft sandboxing, and configurable context compaction.
+The v0.1 product is a single binary CLI with SQLite-backed event sourcing, checkpoint recovery, configurable agent profiles, internal multi-agent communication, cautious built-in tools, `.triplan-agent/skills` support, MCP support, soft sandboxing, and configurable context compaction.
 
 The runtime is intended to replace LangGraph-style workflow infrastructure for internal agent applications. It keeps deterministic lifecycle middleware where useful, but moves dynamic context injection to asynchronous reactors that observe the run and produce targeted context patches.
 
@@ -78,12 +78,12 @@ Compaction is event-driven as well. It creates compact boundaries and summary pr
 
 A `Workspace` is a project folder and runtime boundary. It owns:
 
-- `.agents/config.toml`
-- `.agents/agents/*.toml`
-- `.agents/skills/`
-- `.agents/mcp.toml`
-- `.agents/prompts/compact/*.md`
-- `.agents/shadowbox.toml`
+- `.triplan-agent/config.toml`
+- `.triplan-agent/agents/*.toml`
+- `.triplan-agent/skills/`
+- `.triplan-agent/mcp.toml`
+- `.triplan-agent/prompts/compact/*.md`
+- `.triplan-agent/shadowbox.toml`
 - SQLite database
 - default provider and model settings
 - workspace-level permissions
@@ -243,7 +243,7 @@ v0.1 supports:
 - `micro_compact`: removes or summarizes old tool results without full conversation summarization.
 - `post_compact_restore`: restores necessary working state after compaction.
 
-The default compaction template follows the Claude Code style: preserve user intent, technical concepts, files and code sections, errors and fixes, solved problems, all user messages, pending tasks, current work, and next step. The template is configurable under `.agents/prompts/compact/`.
+The default compaction template follows the Claude Code style: preserve user intent, technical concepts, files and code sections, errors and fixes, solved problems, all user messages, pending tasks, current work, and next step. The template is configurable under `.triplan-agent/prompts/compact/`.
 
 Compaction emits events such as `compact_requested`, `compact_started`, `compact_completed`, `compact_failed`, and `compact_boundary_created`.
 
@@ -280,7 +280,7 @@ File tools are workspace-bound. `file_edit` must include stale-write protection:
 
 ### Skill
 
-Skills use `.agents/skills/<name>/SKILL.md` and progressive disclosure:
+Skills use `.triplan-agent/skills/<name>/SKILL.md` and progressive disclosure:
 
 - metadata is loaded first
 - full instructions are loaded only when selected
@@ -374,11 +374,11 @@ The CLI is the v0.1 product surface.
 Core commands:
 
 ```bash
-agent init
+triplan-agent init
 agent chat
 agent run
 agent resume
-agent status
+triplan-agent status
 agent events
 agent runs
 agent send
@@ -390,13 +390,13 @@ agent tools
 agent skills
 agent mcp
 agent config
-agent doctor
+triplan-agent doctor
 ```
 
-`agent init` creates:
+`triplan-agent init` creates:
 
 ```text
-.agents/
+.triplan-agent/
   config.toml
   agents/
     lead.toml
@@ -413,7 +413,7 @@ agent doctor
 
 Debug commands should support prompt inspection, event tailing, checkpoint inspection, context patch inspection, tool audit inspection, and JSON output.
 
-`agent doctor` checks provider credentials, provider protocol compatibility, SQLite writability, MCP startup, skill metadata, shadowbox policy, and shell adapter availability.
+`triplan-agent doctor` checks provider credentials, provider protocol compatibility, SQLite writability, MCP startup, skill metadata, shadowbox policy, and shell adapter availability.
 
 ## Provider Support
 
@@ -493,19 +493,19 @@ Multi-agent tests:
 
 CLI smoke tests:
 
-- `agent init`
+- `triplan-agent init`
 - `agent run`
 - `agent chat`
-- `agent status`
+- `triplan-agent status`
 - `agent events`
-- `agent compact`
-- `agent doctor`
+- `triplan-agent compact`
+- `triplan-agent doctor`
 
 ## v0.1 Acceptance Criteria
 
 v0.1 is acceptable when it can prove:
 
-- A workspace can initialize `.agents/` and SQLite DB.
+- A workspace can initialize `.triplan-agent/` and SQLite DB.
 - At least two agent profiles can be configured.
 - CLI can start a conversation and a run.
 - Agent can call bash, file, search, skill, compact, and stdio MCP bridge.

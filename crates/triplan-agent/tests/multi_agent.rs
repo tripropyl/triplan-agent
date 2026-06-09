@@ -1,5 +1,5 @@
-use agent_ease::context::{AgentBus, ContextPatchStore};
-use agent_ease::db::{connect_sqlite, migrate};
+use triplan_agent::context::{AgentBus, ContextPatchStore};
+use triplan_agent::db::{connect_sqlite, migrate};
 
 #[tokio::test]
 async fn agent_message_becomes_context_patch() {

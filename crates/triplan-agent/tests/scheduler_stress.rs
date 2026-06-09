@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use agent_ease::db::{connect_sqlite, migrate, TaskStore};
-use agent_ease::runtime::SchedulerWorker;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
+use triplan_agent::db::{connect_sqlite, migrate, TaskStore};
+use triplan_agent::runtime::SchedulerWorker;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn scheduler_workers_drain_tasks_once_under_concurrency() {

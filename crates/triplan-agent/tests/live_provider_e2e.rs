@@ -1,8 +1,10 @@
-use agent_ease::provider::{
+use triplan_agent::provider::{
     LlmProvider, ModelMessage, ModelOutput, ModelRequest, OpenAiCompatibleProvider,
 };
 
 fn load_local_env() {
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let _ = dotenvy::from_path(manifest_dir.join("../../.env"));
     let _ = dotenvy::dotenv();
 }
 
@@ -23,14 +25,14 @@ async fn openai_live_chat_completion_returns_text() {
             model,
             messages: vec![ModelMessage {
                 role: "user".to_string(),
-                content: "Return exactly: agent-ease-openai-live-ok".to_string(),
+                content: "Return exactly: triplan-agent-openai-live-ok".to_string(),
             }],
         })
         .await
         .expect("openai completion");
 
     match output {
-        ModelOutput::Text(text) => assert!(text.contains("agent-ease-openai-live-ok")),
+        ModelOutput::Text(text) => assert!(text.contains("triplan-agent-openai-live-ok")),
         other => panic!("expected text output, got {other:?}"),
     }
 }
@@ -50,14 +52,14 @@ async fn dashscope_live_chat_completion_returns_text() {
             model,
             messages: vec![ModelMessage {
                 role: "user".to_string(),
-                content: "Return exactly: agent-ease-dashscope-live-ok".to_string(),
+                content: "Return exactly: triplan-agent-dashscope-live-ok".to_string(),
             }],
         })
         .await
         .expect("dashscope completion");
 
     match output {
-        ModelOutput::Text(text) => assert!(text.contains("agent-ease-dashscope-live-ok")),
+        ModelOutput::Text(text) => assert!(text.contains("triplan-agent-dashscope-live-ok")),
         other => panic!("expected text output, got {other:?}"),
     }
 }

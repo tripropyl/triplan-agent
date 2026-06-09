@@ -16,10 +16,10 @@ pub struct WorkspaceConfig {
 impl Default for WorkspaceConfig {
     fn default() -> Self {
         Self {
-            workspace_name: "agent-workspace".to_string(),
+            workspace_name: "triplan-agent".to_string(),
             default_agent: "default".to_string(),
             default_provider: "dashscope".to_string(),
-            database_path: ".agents/agent.db".to_string(),
+            database_path: ".triplan-agent/agent.db".to_string(),
         }
     }
 }
@@ -35,16 +35,16 @@ pub struct AgentProfileConfig {
     pub mcp_servers: Vec<String>,
 }
 
-pub fn agents_dir(workspace: &Path) -> PathBuf {
-    workspace.join(".agents")
+pub fn triplan_dir(workspace: &Path) -> PathBuf {
+    workspace.join(".triplan-agent")
 }
 
 pub fn config_path(workspace: &Path) -> PathBuf {
-    agents_dir(workspace).join("config.toml")
+    triplan_dir(workspace).join("config.toml")
 }
 
 pub async fn init_workspace(workspace: &Path) -> Result<()> {
-    let root = agents_dir(workspace);
+    let root = triplan_dir(workspace);
     fs::create_dir_all(root.join("agents")).await?;
     fs::create_dir_all(root.join("skills")).await?;
     fs::create_dir_all(root.join("prompts/compact")).await?;
@@ -64,6 +64,7 @@ pub async fn init_workspace(workspace: &Path) -> Result<()> {
                 "file_write".to_string(),
                 "file_edit".to_string(),
                 "search".to_string(),
+                "clarify".to_string(),
                 "skill".to_string(),
                 "agent_message".to_string(),
                 "compact".to_string(),
@@ -85,6 +86,7 @@ pub async fn init_workspace(workspace: &Path) -> Result<()> {
             tools: vec![
                 "agent_message".to_string(),
                 "compact".to_string(),
+                "clarify".to_string(),
                 "skill".to_string(),
             ],
             skills: vec![],

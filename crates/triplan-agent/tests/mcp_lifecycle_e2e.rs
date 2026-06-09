@@ -1,5 +1,5 @@
-use agent_ease::mcp::{McpRequest, StdioMcpClient};
 use serde_json::json;
+use triplan_agent::mcp::{McpRequest, StdioMcpClient};
 
 #[tokio::test]
 async fn stdio_mcp_client_round_trips_json_rpc_and_stops_child() {

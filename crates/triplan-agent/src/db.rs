@@ -1,10 +1,12 @@
 use chrono::{DateTime, Utc};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use uuid::Uuid;
 
 use crate::error::{AgentError, Result};
-use crate::model::{CheckpointRecord, EventPayload, EventRecord, EventType, TaskRecord};
+use crate::model::{
+    CheckpointRecord, ClarificationRecord, EventPayload, EventRecord, EventType, TaskRecord,
+};
 
 pub async fn connect_sqlite(database_url: &str) -> Result<SqlitePool> {
     let max_connections = if database_url.contains(":memory:") {
@@ -144,6 +146,45 @@ pub async fn migrate(pool: &SqlitePool) -> Result<()> {
     )
     .execute(pool)
     .await?;
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS clarifications (
+            clarification_id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            conversation_id TEXT NOT NULL,
+            run_id TEXT NOT NULL,
+            agent_id TEXT NOT NULL,
+            question TEXT NOT NULL,
+            reason TEXT,
+            options_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            answer TEXT,
+            requested_event_id TEXT NOT NULL,
+            answered_event_id TEXT,
+            created_at TEXT NOT NULL,
+            answered_at TEXT
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_clarifications_one_pending_run
+        ON clarifications(workspace_id, run_id)
+        WHERE status = 'pending';
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        CREATE INDEX IF NOT EXISTS idx_clarifications_workspace_status
+        ON clarifications(workspace_id, status, created_at);
+        "#,
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
@@ -244,6 +285,254 @@ impl EventStore {
         .await?;
 
         rows.into_iter().map(row_to_event).collect()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ClarificationRequest {
+    pub workspace_id: String,
+    pub conversation_id: String,
+    pub run_id: String,
+    pub agent_id: String,
+    pub question: String,
+    pub reason: Option<String>,
+    pub options: Vec<String>,
+}
+
+#[derive(Clone)]
+pub struct ClarificationStore {
+    pool: SqlitePool,
+}
+
+impl ClarificationStore {
+    pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn request(&self, request: ClarificationRequest) -> Result<ClarificationRecord> {
+        if self
+            .pending_for_run(&request.workspace_id, &request.run_id)
+            .await?
+            .is_some()
+        {
+            return Err(AgentError::PolicyDenied(
+                "pending clarification already exists for this run".to_string(),
+            ));
+        }
+
+        let clarification_id = Uuid::new_v4();
+        let events = EventStore::new(self.pool.clone());
+        let requested = events
+            .append_event(
+                &request.workspace_id,
+                Some(&request.conversation_id),
+                Some(&request.run_id),
+                Some(&request.agent_id),
+                EventType::ClarificationRequested,
+                EventPayload::Json(json!({
+                    "clarification_id": clarification_id,
+                    "question": &request.question,
+                    "reason": &request.reason,
+                    "options": &request.options,
+                })),
+                None,
+                None,
+                None,
+            )
+            .await?;
+        events
+            .append_event(
+                &request.workspace_id,
+                Some(&request.conversation_id),
+                Some(&request.run_id),
+                Some(&request.agent_id),
+                EventType::RunPaused,
+                EventPayload::Json(json!({
+                    "reason": "clarification_requested",
+                    "clarification_id": clarification_id,
+                })),
+                Some(requested.event_id),
+                Some(requested.event_id),
+                Some(requested.correlation_id),
+            )
+            .await?;
+
+        let created_at = Utc::now();
+        sqlx::query(
+            r#"
+            INSERT INTO clarifications (
+                clarification_id, workspace_id, conversation_id, run_id, agent_id,
+                question, reason, options_json, status, requested_event_id, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+            "#,
+        )
+        .bind(clarification_id.to_string())
+        .bind(&request.workspace_id)
+        .bind(&request.conversation_id)
+        .bind(&request.run_id)
+        .bind(&request.agent_id)
+        .bind(&request.question)
+        .bind(&request.reason)
+        .bind(serde_json::to_string(&request.options)?)
+        .bind(requested.event_id.to_string())
+        .bind(created_at.to_rfc3339())
+        .execute(&self.pool)
+        .await?;
+
+        Ok(ClarificationRecord {
+            clarification_id,
+            workspace_id: request.workspace_id,
+            conversation_id: request.conversation_id,
+            run_id: request.run_id,
+            agent_id: request.agent_id,
+            question: request.question,
+            reason: request.reason,
+            options: request.options,
+            status: "pending".to_string(),
+            answer: None,
+            requested_event_id: requested.event_id,
+            answered_event_id: None,
+            created_at,
+            answered_at: None,
+        })
+    }
+
+    pub async fn answer(
+        &self,
+        clarification_id: &str,
+        answer: &str,
+    ) -> Result<ClarificationRecord> {
+        let existing = self
+            .get(clarification_id)
+            .await?
+            .ok_or_else(|| AgentError::NotFound(format!("clarification {clarification_id}")))?;
+        if existing.status != "pending" {
+            return Err(AgentError::PolicyDenied(
+                "clarification is not pending".to_string(),
+            ));
+        }
+
+        let events = EventStore::new(self.pool.clone());
+        let answered = events
+            .append_event(
+                &existing.workspace_id,
+                Some(&existing.conversation_id),
+                Some(&existing.run_id),
+                Some(&existing.agent_id),
+                EventType::ClarificationAnswered,
+                EventPayload::Json(json!({
+                    "clarification_id": existing.clarification_id,
+                    "answer": answer,
+                })),
+                Some(existing.requested_event_id),
+                Some(existing.requested_event_id),
+                Some(existing.requested_event_id),
+            )
+            .await?;
+        events
+            .append_event(
+                &existing.workspace_id,
+                Some(&existing.conversation_id),
+                Some(&existing.run_id),
+                Some(&existing.agent_id),
+                EventType::RunResumed,
+                EventPayload::Json(json!({
+                    "reason": "clarification_answered",
+                    "clarification_id": existing.clarification_id,
+                })),
+                Some(answered.event_id),
+                Some(answered.event_id),
+                Some(existing.requested_event_id),
+            )
+            .await?;
+
+        let answered_at = Utc::now();
+        sqlx::query(
+            r#"
+            UPDATE clarifications
+            SET status = 'answered',
+                answer = ?,
+                answered_event_id = ?,
+                answered_at = ?
+            WHERE clarification_id = ? AND status = 'pending'
+            "#,
+        )
+        .bind(answer)
+        .bind(answered.event_id.to_string())
+        .bind(answered_at.to_rfc3339())
+        .bind(clarification_id)
+        .execute(&self.pool)
+        .await?;
+
+        self.get(clarification_id)
+            .await?
+            .ok_or_else(|| AgentError::NotFound(format!("clarification {clarification_id}")))
+    }
+
+    pub async fn get(&self, clarification_id: &str) -> Result<Option<ClarificationRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT clarification_id, workspace_id, conversation_id, run_id, agent_id,
+                   question, reason, options_json, status, answer, requested_event_id,
+                   answered_event_id, created_at, answered_at
+            FROM clarifications
+            WHERE clarification_id = ?
+            "#,
+        )
+        .bind(clarification_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(row_to_clarification).transpose()
+    }
+
+    pub async fn list_pending(
+        &self,
+        workspace_id: &str,
+        run_id: Option<&str>,
+    ) -> Result<Vec<ClarificationRecord>> {
+        let rows = if let Some(run_id) = run_id {
+            sqlx::query(
+                r#"
+                SELECT clarification_id, workspace_id, conversation_id, run_id, agent_id,
+                       question, reason, options_json, status, answer, requested_event_id,
+                       answered_event_id, created_at, answered_at
+                FROM clarifications
+                WHERE workspace_id = ? AND run_id = ? AND status = 'pending'
+                ORDER BY created_at ASC
+                "#,
+            )
+            .bind(workspace_id)
+            .bind(run_id)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT clarification_id, workspace_id, conversation_id, run_id, agent_id,
+                       question, reason, options_json, status, answer, requested_event_id,
+                       answered_event_id, created_at, answered_at
+                FROM clarifications
+                WHERE workspace_id = ? AND status = 'pending'
+                ORDER BY created_at ASC
+                "#,
+            )
+            .bind(workspace_id)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        rows.into_iter().map(row_to_clarification).collect()
+    }
+
+    async fn pending_for_run(
+        &self,
+        workspace_id: &str,
+        run_id: &str,
+    ) -> Result<Option<ClarificationRecord>> {
+        let pending = self.list_pending(workspace_id, Some(run_id)).await?;
+        Ok(pending.into_iter().next())
     }
 }
 
@@ -453,6 +742,32 @@ fn row_to_event(row: sqlx::sqlite::SqliteRow) -> Result<EventRecord> {
     })
 }
 
+fn row_to_clarification(row: sqlx::sqlite::SqliteRow) -> Result<ClarificationRecord> {
+    let options_json: String = row.try_get("options_json")?;
+    let created_at: String = row.try_get("created_at")?;
+    let answered_at: Option<String> = row.try_get("answered_at")?;
+
+    Ok(ClarificationRecord {
+        clarification_id: parse_uuid(row.try_get("clarification_id")?, "clarification_id")?,
+        workspace_id: row.try_get("workspace_id")?,
+        conversation_id: row.try_get("conversation_id")?,
+        run_id: row.try_get("run_id")?,
+        agent_id: row.try_get("agent_id")?,
+        question: row.try_get("question")?,
+        reason: row.try_get("reason")?,
+        options: serde_json::from_str(&options_json)?,
+        status: row.try_get("status")?,
+        answer: row.try_get("answer")?,
+        requested_event_id: parse_uuid(row.try_get("requested_event_id")?, "requested_event_id")?,
+        answered_event_id: parse_optional_uuid(
+            row.try_get("answered_event_id")?,
+            "answered_event_id",
+        )?,
+        created_at: parse_datetime(&created_at, "clarification created_at")?,
+        answered_at: parse_optional_datetime(answered_at, "clarification answered_at")?,
+    })
+}
+
 fn parse_uuid(value: String, column: &str) -> Result<Uuid> {
     Uuid::parse_str(&value)
         .map_err(|err| AgentError::Runtime(format!("invalid {column} uuid: {err}")))
@@ -466,4 +781,8 @@ fn parse_datetime(value: &str, label: &str) -> Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(value)
         .map(|parsed| parsed.with_timezone(&Utc))
         .map_err(|err| AgentError::Runtime(format!("invalid {label}: {err}")))
+}
+
+fn parse_optional_datetime(value: Option<String>, label: &str) -> Result<Option<DateTime<Utc>>> {
+    value.map(|text| parse_datetime(&text, label)).transpose()
 }

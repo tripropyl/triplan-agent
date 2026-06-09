@@ -1,7 +1,7 @@
-use agent_ease::db::{connect_sqlite, migrate, EventStore};
-use agent_ease::db::{CheckpointStore, TaskStore};
-use agent_ease::model::{EventPayload, EventType};
 use serde_json::json;
+use triplan_agent::db::{connect_sqlite, migrate, EventStore};
+use triplan_agent::db::{CheckpointStore, TaskStore};
+use triplan_agent::model::{EventPayload, EventType};
 
 #[tokio::test]
 async fn appends_events_with_monotonic_sequence() {

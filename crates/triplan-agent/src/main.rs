@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use agent_ease::cli::{dispatch, Cli};
+use triplan_agent::cli::{dispatch, Cli};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

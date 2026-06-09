@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>贪吃蛇</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111315;
+      --panel: #20252a;
+      --panel-2: #292f35;
+      --text: #eef3f5;
+      --muted: #a8b3bb;
+      --line: #39424a;
+      --accent: #3fd39b;
+      --danger: #ff6b6b;
+      --food: #ffd166;
+      --snake: #51c8ff;
+      --snake-head: #72f0b6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(63, 211, 155, 0.13), transparent 32rem),
+        radial-gradient(circle at 85% 80%, rgba(81, 200, 255, 0.12), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      letter-spacing: 0;
+    }
+
+    main {
+      width: min(960px, 100%);
+      display: grid;
+      grid-template-columns: minmax(320px, 620px) minmax(220px, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .game-shell,
+    .side-panel {
+      background: color-mix(in srgb, var(--panel) 91%, transparent);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+    }
+
+    .game-shell {
+      padding: 14px;
+    }
+
+    .topbar,
+    .stats,
+    .actions,
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .topbar {
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 22px;
+      line-height: 1.1;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .stat {
+      min-width: 82px;
+      padding: 8px 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .stat strong {
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-2);
+      color: var(--text);
+      min-height: 42px;
+      padding: 0 14px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--accent) 70%, var(--line));
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #09231a;
+      border-color: transparent;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 8px;
+      background: #15191d;
+      border: 1px solid var(--line);
+    }
+
+    .side-panel {
+      padding: 16px;
+    }
+
+    .side-panel h2 {
+      font-size: 16px;
+      margin: 0 0 10px;
+    }
+
+    .side-panel p,
+    .side-panel li {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    ul {
+      padding-left: 18px;
+      margin: 8px 0 18px;
+    }
+
+    .status {
+      margin: 12px 0 0;
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .mobile-pad {
+      display: none;
+      grid-template-columns: repeat(3, 56px);
+      grid-template-rows: repeat(3, 52px);
+      gap: 8px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .mobile-pad button {
+      min-height: 52px;
+      padding: 0;
+      font-size: 22px;
+    }
+
+    .mobile-pad .up {
+      grid-column: 2;
+    }
+
+    .mobile-pad .left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .mobile-pad .right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
+    .mobile-pad .down {
+      grid-column: 2;
+      grid-row: 3;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 12px;
+        align-items: start;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .mobile-pad {
+        display: grid;
+      }
+
+      .topbar {
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="game-shell" aria-label="贪吃蛇游戏">
+      <div class="topbar">
+        <h1>贪吃蛇</h1>
+        <div class="actions">
+          <button class="primary" id="startButton">开始</button>
+          <button id="pauseButton">暂停</button>
+          <button id="resetButton">重开</button>
+        </div>
+      </div>
+
+      <div class="topbar">
+        <div class="stats" aria-live="polite">
+          <div class="stat"><span>分数</span><strong id="score">0</strong></div>
+          <div class="stat"><span>最高</span><strong id="best">0</strong></div>
+          <div class="stat"><span>速度</span><strong id="speed">1</strong></div>
+        </div>
+      </div>
+
+      <canvas id="board" width="600" height="600" aria-label="游戏棋盘"></canvas>
+      <p class="status" id="status">按开始或空格键进入游戏。</p>
+
+      <div class="mobile-pad" aria-label="方向控制">
+        <button class="up" data-dir="up" aria-label="向上">↑</button>
+        <button class="left" data-dir="left" aria-label="向左">←</button>
+        <button class="right" data-dir="right" aria-label="向右">→</button>
+        <button class="down" data-dir="down" aria-label="向下">↓</button>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <h2>目标</h2>
+      <p>吃掉金色食物，身体会变长，速度会逐步提升。撞墙或咬到自己会结束本局。</p>
+      <h2>控制</h2>
+      <ul>
+        <li>方向键或 WASD 控制移动。</li>
+        <li>空格键开始或暂停。</li>
+        <li>Enter 键快速重开。</li>
+      </ul>
+      <h2>节奏</h2>
+      <p>每 4 分提升 1 档速度。最高分会保存在浏览器本地。</p>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.querySelector("#board");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.querySelector("#score");
+    const bestEl = document.querySelector("#best");
+    const speedEl = document.querySelector("#speed");
+    const statusEl = document.querySelector("#status");
+    const startButton = document.querySelector("#startButton");
+    const pauseButton = document.querySelector("#pauseButton");
+    const resetButton = document.querySelector("#resetButton");
+
+    const grid = 24;
+    const cell = canvas.width / grid;
+    const startSnake = [
+      { x: 10, y: 12 },
+      { x: 9, y: 12 },
+      { x: 8, y: 12 }
+    ];
+
+    let snake;
+    let food;
+    let direction;
+    let nextDirection;
+    let score;
+    let best;
+    let speed;
+    let running;
+    let paused;
+    let timerId;
+
+    function resetState() {
+      snake = startSnake.map(part => ({ ...part }));
+      direction = { x: 1, y: 0 };
+      nextDirection = { x: 1, y: 0 };
+      score = 0;
+      speed = 1;
+      running = false;
+      paused = false;
+      best = Number(localStorage.getItem("snake-best") || 0);
+      food = placeFood();
+      stopTimer();
+      updateHud();
+      statusEl.textContent = "按开始或空格键进入游戏。";
+      draw();
+    }
+
+    function startGame() {
+      if (running && !paused) return;
+      running = true;
+      paused = false;
+      statusEl.textContent = "正在游戏。";
+      scheduleTick();
+    }
+
+    function togglePause() {
+      if (!running) {
+        startGame();
+        return;
+      }
+      paused = !paused;
+      statusEl.textContent = paused ? "已暂停。" : "正在游戏。";
+      if (paused) stopTimer();
+      else scheduleTick();
+      draw();
+    }
+
+    function restartGame() {
+      resetState();
+      startGame();
+    }
+
+    function stopTimer() {
+      if (timerId) clearTimeout(timerId);
+      timerId = null;
+    }
+
+    function scheduleTick() {
+      stopTimer();
+      if (!running || paused) return;
+      const delay = Math.max(58, 145 - (speed - 1) * 12);
+      timerId = setTimeout(() => {
+        tick();
+        scheduleTick();
+      }, delay);
+    }
+
+    function tick() {
+      direction = nextDirection;
+      const head = snake[0];
+      const newHead = { x: head.x + direction.x, y: head.y + direction.y };
+
+      if (isWall(newHead) || snake.some(part => part.x === newHead.x && part.y === newHead.y)) {
+        gameOver();
+        return;
+      }
+
+      snake.unshift(newHead);
+      if (newHead.x === food.x && newHead.y === food.y) {
+        score += 1;
+        speed = 1 + Math.floor(score / 4);
+        if (score > best) {
+          best = score;
+          localStorage.setItem("snake-best", String(best));
+        }
+        food = placeFood();
+      } else {
+        snake.pop();
+      }
+
+      updateHud();
+      draw();
+    }
+
+    function gameOver() {
+      running = false;
+      paused = false;
+      stopTimer();
+      statusEl.textContent = `游戏结束，得分 ${score}。按 Enter 重开。`;
+      draw(true);
+    }
+
+    function updateHud() {
+      scoreEl.textContent = score;
+      bestEl.textContent = best;
+      speedEl.textContent = speed;
+    }
+
+    function isWall(point) {
+      return point.x < 0 || point.y < 0 || point.x >= grid || point.y >= grid;
+    }
+
+    function placeFood() {
+      const occupied = new Set(snake.map(part => `${part.x},${part.y}`));
+      let candidate;
+      do {
+        candidate = {
+          x: Math.floor(Math.random() * grid),
+          y: Math.floor(Math.random() * grid)
+        };
+      } while (occupied.has(`${candidate.x},${candidate.y}`));
+      return candidate;
+    }
+
+    function setDirection(name) {
+      const vectors = {
+        up: { x: 0, y: -1 },
+        down: { x: 0, y: 1 },
+        left: { x: -1, y: 0 },
+        right: { x: 1, y: 0 }
+      };
+      const wanted = vectors[name];
+      if (!wanted) return;
+      if (wanted.x + direction.x === 0 && wanted.y + direction.y === 0) return;
+      nextDirection = wanted;
+    }
+
+    function draw(gameEnded = false) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#15191d";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      drawCell(food, getComputedStyle(document.documentElement).getPropertyValue("--food"));
+      snake.forEach((part, index) => {
+        drawCell(part, index === 0
+          ? getComputedStyle(document.documentElement).getPropertyValue("--snake-head")
+          : getComputedStyle(document.documentElement).getPropertyValue("--snake"));
+      });
+
+      if (paused || gameEnded) {
+        ctx.fillStyle = "rgba(10, 13, 15, 0.58)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#eef3f5";
+        ctx.textAlign = "center";
+        ctx.font = "700 30px system-ui";
+        ctx.fillText(gameEnded ? "Game Over" : "Paused", canvas.width / 2, canvas.height / 2);
+      }
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.045)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < grid; i++) {
+        const pos = i * cell;
+        ctx.beginPath();
+        ctx.moveTo(pos, 0);
+        ctx.lineTo(pos, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, pos);
+        ctx.lineTo(canvas.width, pos);
+        ctx.stroke();
+      }
+    }
+
+    function drawCell(point, color) {
+      const inset = 3;
+      ctx.fillStyle = color.trim();
+      ctx.beginPath();
+      ctx.roundRect(
+        point.x * cell + inset,
+        point.y * cell + inset,
+        cell - inset * 2,
+        cell - inset * 2,
+        7
+      );
+      ctx.fill();
+    }
+
+    startButton.addEventListener("click", startGame);
+    pauseButton.addEventListener("click", togglePause);
+    resetButton.addEventListener("click", restartGame);
+
+    document.querySelectorAll("[data-dir]").forEach(button => {
+      button.addEventListener("click", () => {
+        setDirection(button.dataset.dir);
+        startGame();
+      });
+    });
+
+    window.addEventListener("keydown", event => {
+      const map = {
+        ArrowUp: "up",
+        KeyW: "up",
+        ArrowDown: "down",
+        KeyS: "down",
+        ArrowLeft: "left",
+        KeyA: "left",
+        ArrowRight: "right",
+        KeyD: "right"
+      };
+
+      if (map[event.code]) {
+        event.preventDefault();
+        setDirection(map[event.code]);
+        startGame();
+      } else if (event.code === "Space") {
+        event.preventDefault();
+        togglePause();
+      } else if (event.code === "Enter") {
+        event.preventDefault();
+        restartGame();
+      }
+    });
+
+    resetState();
+  </script>
+</body>
+</html>

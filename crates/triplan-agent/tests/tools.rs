@@ -1,8 +1,8 @@
-use agent_ease::mcp::McpRequest;
-use agent_ease::shadowbox::Shadowbox;
-use agent_ease::skills::SkillRegistry;
-use agent_ease::tools::{BashTool, FileEditTool, FileReadTool, FileState, SearchTool, Tool};
 use serde_json::json;
+use triplan_agent::mcp::McpRequest;
+use triplan_agent::shadowbox::Shadowbox;
+use triplan_agent::skills::SkillRegistry;
+use triplan_agent::tools::{BashTool, FileEditTool, FileReadTool, FileState, SearchTool, Tool};
 
 #[tokio::test]
 async fn shadowbox_blocks_outside_workspace() {
@@ -80,7 +80,7 @@ async fn file_edit_rejects_stale_version() {
 #[tokio::test]
 async fn skill_registry_loads_metadata_progressively() {
     let temp = tempfile::tempdir().expect("tempdir");
-    let skill_dir = temp.path().join(".agents/skills/review");
+    let skill_dir = temp.path().join(".triplan-agent/skills/review");
     tokio::fs::create_dir_all(&skill_dir).await.expect("mkdir");
     tokio::fs::write(
         skill_dir.join("SKILL.md"),

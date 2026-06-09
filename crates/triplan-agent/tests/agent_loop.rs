@@ -1,7 +1,7 @@
-use agent_ease::context::CompactionEngine;
-use agent_ease::db::{connect_sqlite, migrate, EventStore};
-use agent_ease::provider::MockProvider;
-use agent_ease::runtime::AgentLoop;
+use triplan_agent::context::CompactionEngine;
+use triplan_agent::db::{connect_sqlite, migrate, EventStore};
+use triplan_agent::provider::MockProvider;
+use triplan_agent::runtime::AgentLoop;
 
 #[tokio::test]
 async fn mock_agent_loop_records_assistant_message() {

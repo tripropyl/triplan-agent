@@ -26,7 +26,7 @@ pub struct SkillRegistry {
 
 impl SkillRegistry {
     pub async fn scan(workspace: &Path) -> Result<Self> {
-        let root = workspace.join(".agents/skills");
+        let root = workspace.join(".triplan-agent/skills");
         let mut skills = Vec::new();
         if !root.exists() {
             return Ok(Self { skills });

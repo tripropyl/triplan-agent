@@ -8,6 +8,7 @@ use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 use walkdir::WalkDir;
 
+use crate::db::{ClarificationRequest, ClarificationStore};
 use crate::error::{AgentError, Result};
 use crate::shadowbox::Shadowbox;
 
@@ -15,6 +16,103 @@ use crate::shadowbox::Shadowbox;
 pub trait Tool {
     fn name(&self) -> &'static str;
     async fn call(&self, shadowbox: &Shadowbox, input: Value) -> Result<Value>;
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ControlToolContext<'a> {
+    pub workspace_id: &'a str,
+    pub conversation_id: &'a str,
+    pub run_id: &'a str,
+    pub agent_id: &'a str,
+}
+
+#[async_trait]
+pub trait ControlTool {
+    fn name(&self) -> &'static str;
+    async fn call(&self, context: ControlToolContext<'_>, input: Value) -> Result<Value>;
+}
+
+pub struct ClarifyTool {
+    store: ClarificationStore,
+}
+
+impl ClarifyTool {
+    pub fn new(store: ClarificationStore) -> Self {
+        Self { store }
+    }
+}
+
+#[async_trait]
+impl ControlTool for ClarifyTool {
+    fn name(&self) -> &'static str {
+        "clarify"
+    }
+
+    async fn call(&self, context: ControlToolContext<'_>, input: Value) -> Result<Value> {
+        let question = required_non_empty_string(&input, "question")?;
+        let reason = optional_non_empty_string(&input, "reason");
+        let options = parse_options(&input)?;
+        let record = self
+            .store
+            .request(ClarificationRequest {
+                workspace_id: context.workspace_id.to_string(),
+                conversation_id: context.conversation_id.to_string(),
+                run_id: context.run_id.to_string(),
+                agent_id: context.agent_id.to_string(),
+                question: question.to_string(),
+                reason: reason.map(str::to_string),
+                options,
+            })
+            .await?;
+
+        Ok(json!({
+            "tool": self.name(),
+            "clarification_id": record.clarification_id.to_string(),
+            "status": record.status,
+            "run_status": "paused",
+            "question": record.question,
+            "options": record.options,
+        }))
+    }
+}
+
+fn required_non_empty_string<'a>(input: &'a Value, field: &str) -> Result<&'a str> {
+    input[field]
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AgentError::Runtime(format!("clarify requires {field}")))
+}
+
+fn optional_non_empty_string<'a>(input: &'a Value, field: &str) -> Option<&'a str> {
+    input[field]
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn parse_options(input: &Value) -> Result<Vec<String>> {
+    let Some(values) = input.get("options") else {
+        return Ok(Vec::new());
+    };
+    let Some(values) = values.as_array() else {
+        return Err(AgentError::Runtime(
+            "clarify options must be an array".to_string(),
+        ));
+    };
+
+    let mut options = Vec::with_capacity(values.len());
+    for value in values {
+        let option = value
+            .as_str()
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .ok_or_else(|| {
+                AgentError::Runtime("clarify options must be non-empty strings".to_string())
+            })?;
+        options.push(option.to_string());
+    }
+    Ok(options)
 }
 
 pub struct FileReadTool;

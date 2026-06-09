@@ -1,13 +1,13 @@
-use agent_ease::config::{init_workspace, load_workspace_config};
-use agent_ease::context::{AgentBus, CompactionEngine, ContextPatchStore};
-use agent_ease::db::{connect_sqlite, migrate, CheckpointStore, EventStore, TaskStore};
-use agent_ease::mcp::McpRequest;
-use agent_ease::provider::MockProvider;
-use agent_ease::runtime::AgentLoop;
-use agent_ease::shadowbox::Shadowbox;
-use agent_ease::skills::SkillRegistry;
-use agent_ease::tools::{BashTool, FileEditTool, FileReadTool, FileState, SearchTool, Tool};
 use serde_json::json;
+use triplan_agent::config::{init_workspace, load_workspace_config};
+use triplan_agent::context::{AgentBus, CompactionEngine, ContextPatchStore};
+use triplan_agent::db::{connect_sqlite, migrate, CheckpointStore, EventStore, TaskStore};
+use triplan_agent::mcp::McpRequest;
+use triplan_agent::provider::MockProvider;
+use triplan_agent::runtime::AgentLoop;
+use triplan_agent::shadowbox::Shadowbox;
+use triplan_agent::skills::SkillRegistry;
+use triplan_agent::tools::{BashTool, FileEditTool, FileReadTool, FileState, SearchTool, Tool};
 
 #[tokio::test]
 async fn foundation_runtime_e2e_flow() {
@@ -16,11 +16,13 @@ async fn foundation_runtime_e2e_flow() {
     let config = load_workspace_config(temp.path())
         .await
         .expect("load config");
-    assert_eq!(config.workspace_name, "agent-workspace");
+    assert_eq!(config.workspace_name, "triplan-agent");
 
     let db_url = format!(
         "sqlite://{}?mode=rwc",
-        temp.path().join(".agents/agent.db").to_string_lossy()
+        temp.path()
+            .join(".triplan-agent/agent.db")
+            .to_string_lossy()
     );
     let pool = connect_sqlite(&db_url).await.expect("pool");
     migrate(&pool).await.expect("migrate");
@@ -125,7 +127,7 @@ async fn foundation_runtime_e2e_flow() {
         .expect("bash");
     assert!(bash["stdout"].as_str().expect("stdout").contains("e2e"));
 
-    let skill_dir = temp.path().join(".agents/skills/review");
+    let skill_dir = temp.path().join(".triplan-agent/skills/review");
     tokio::fs::create_dir_all(&skill_dir)
         .await
         .expect("skill dir");

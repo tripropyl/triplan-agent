@@ -1,0 +1,202 @@
+name: CLI Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+  PACKAGE: triplan-agent
+
+jobs:
+  test:
+    name: Test workspace
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run tests
+        run: cargo test -p triplan-agent
+
+  build:
+    name: Build ${{ matrix.label }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-x64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            binary: triplan-agent
+            archive: tar.gz
+            apt: ""
+            linker_env: ""
+            linker: ""
+          - label: linux-arm64
+            os: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            binary: triplan-agent
+            archive: tar.gz
+            apt: gcc-aarch64-linux-gnu
+            linker_env: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER
+            linker: aarch64-linux-gnu-gcc
+          - label: windows-x64
+            os: windows-2022
+            target: x86_64-pc-windows-msvc
+            binary: triplan-agent.exe
+            archive: zip
+            apt: ""
+            linker_env: ""
+            linker: ""
+          - label: windows-arm64
+            os: windows-2022
+            target: aarch64-pc-windows-msvc
+            binary: triplan-agent.exe
+            archive: zip
+            apt: ""
+            linker_env: ""
+            linker: ""
+          - label: macos-x64
+            os: macos-13
+            target: x86_64-apple-darwin
+            binary: triplan-agent
+            archive: tar.gz
+            apt: ""
+            linker_env: ""
+            linker: ""
+          - label: macos-arm64
+            os: macos-13
+            target: aarch64-apple-darwin
+            binary: triplan-agent
+            archive: tar.gz
+            apt: ""
+            linker_env: ""
+            linker: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux cross toolchain
+        if: matrix.apt != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Configure Linux linker
+        if: matrix.linker_env != ''
+        shell: bash
+        run: |
+          echo "${{ matrix.linker_env }}=${{ matrix.linker }}" >> "${GITHUB_ENV}"
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> "${GITHUB_ENV}"
+          echo "AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar" >> "${GITHUB_ENV}"
+
+      - name: Build CLI
+        run: cargo build --locked --release -p triplan-agent --target ${{ matrix.target }}
+
+      - name: Package Unix artifact
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          version="$(cargo pkgid -p "${PACKAGE}" | sed 's/.*#//')"
+          artifact="${PACKAGE}-${version}-${{ matrix.label }}"
+          mkdir -p "dist/${artifact}"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/${artifact}/"
+          cp README.md "dist/${artifact}/"
+          tar -C dist -czf "dist/${artifact}.tar.gz" "${artifact}"
+
+      - name: Package Windows artifact
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $version = ((cargo pkgid -p $env:PACKAGE) -split '#')[-1]
+          $artifact = "$env:PACKAGE-$version-${{ matrix.label }}"
+          New-Item -ItemType Directory -Force -Path "dist/$artifact" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/$artifact/"
+          Copy-Item "README.md" "dist/$artifact/"
+          Compress-Archive -Path "dist/$artifact" -DestinationPath "dist/$artifact.zip" -Force
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: triplan-agent-${{ matrix.label }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+  build-macos-universal:
+    name: Build macos-universal
+    needs: test
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Build macOS x64
+        run: cargo build --locked --release -p triplan-agent --target x86_64-apple-darwin
+
+      - name: Build macOS arm64
+        run: cargo build --locked --release -p triplan-agent --target aarch64-apple-darwin
+
+      - name: Package universal artifact
+        shell: bash
+        run: |
+          version="$(cargo pkgid -p "${PACKAGE}" | sed 's/.*#//')"
+          artifact="${PACKAGE}-${version}-macos-universal"
+          mkdir -p "dist/${artifact}"
+          lipo -create \
+            "target/x86_64-apple-darwin/release/${PACKAGE}" \
+            "target/aarch64-apple-darwin/release/${PACKAGE}" \
+            -output "dist/${artifact}/${PACKAGE}"
+          cp README.md "dist/${artifact}/"
+          tar -C dist -czf "dist/${artifact}.tar.gz" "${artifact}"
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: triplan-agent-macos-universal
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs:
+      - build
+      - build-macos-universal
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

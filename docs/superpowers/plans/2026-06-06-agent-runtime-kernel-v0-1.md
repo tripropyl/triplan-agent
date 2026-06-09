@@ -14,7 +14,7 @@
 
 This plan implements the first foundation slice of `docs/superpowers/specs/2026-06-06-agent-runtime-kernel-design.md`. The design spec covers several coupled subsystems, so implementation is split into sequential plans. This plan creates the crate, event store, checkpoint/task primitives, mock-provider loop, core tools, skills, Agent Bus, context patch, manual compaction, MCP request foundation, and CLI smoke surface. The next plan will extend this foundation to full v0.1 acceptance with real provider adapters, scheduler workers, automatic/reactive compaction, full MCP process lifecycle, and richer CLI run/debug commands.
 
-This plan intentionally starts from the current workspace, which has no Rust crate yet. Existing `.agents/` and `.codex/` untracked content must not be deleted or mass-staged.
+This plan intentionally starts from the current workspace, which has no Rust crate yet. Existing `.triplan-agent/` and `.codex/` untracked content must not be deleted or mass-staged.
 
 The plan produces working, testable software through vertical slices:
 
@@ -33,26 +33,26 @@ The plan produces working, testable software through vertical slices:
 
 Create these files:
 
-- `/Users/BaiGod/Documents/agent-ease/Cargo.toml` - crate metadata, dependencies, binary and library targets.
-- `/Users/BaiGod/Documents/agent-ease/src/lib.rs` - public module exports.
-- `/Users/BaiGod/Documents/agent-ease/src/main.rs` - CLI entrypoint.
-- `/Users/BaiGod/Documents/agent-ease/src/error.rs` - crate-wide error type and `Result`.
-- `/Users/BaiGod/Documents/agent-ease/src/cli.rs` - `clap` command definitions and command dispatch.
-- `/Users/BaiGod/Documents/agent-ease/src/config.rs` - workspace config loading, validation, and default file generation.
-- `/Users/BaiGod/Documents/agent-ease/src/model.rs` - core ids and runtime domain structs.
-- `/Users/BaiGod/Documents/agent-ease/src/db.rs` - SQLite pool, migrations, event store, tasks, checkpoints, and queries.
-- `/Users/BaiGod/Documents/agent-ease/src/provider.rs` - provider trait, mock provider, OpenAI-compatible adapter, DashScope adapter.
-- `/Users/BaiGod/Documents/agent-ease/src/shadowbox.rs` - path boundary, env policy, command policy, and output truncation.
-- `/Users/BaiGod/Documents/agent-ease/src/tools.rs` - tool trait, registry, built-in tools.
-- `/Users/BaiGod/Documents/agent-ease/src/skills.rs` - `.agents/skills` metadata and progressive loading.
-- `/Users/BaiGod/Documents/agent-ease/src/mcp.rs` - stdio MCP process wrapper and minimal JSON-RPC tool invocation.
-- `/Users/BaiGod/Documents/agent-ease/src/context.rs` - context patches, reactor trait, patch selection, and compaction.
-- `/Users/BaiGod/Documents/agent-ease/src/runtime.rs` - scheduler, agent loop, run lifecycle, prompt projection.
-- `/Users/BaiGod/Documents/agent-ease/tests/cli_init.rs` - CLI init and config smoke tests.
-- `/Users/BaiGod/Documents/agent-ease/tests/event_store.rs` - SQLite event/checkpoint/task tests.
-- `/Users/BaiGod/Documents/agent-ease/tests/agent_loop.rs` - mock provider loop tests.
-- `/Users/BaiGod/Documents/agent-ease/tests/tools.rs` - Shadowbox and tool tests.
-- `/Users/BaiGod/Documents/agent-ease/tests/multi_agent.rs` - Agent Bus and multi-run tests.
+- `/path/to/triplan-agent/Cargo.toml` - crate metadata, dependencies, binary and library targets.
+- `/path/to/triplan-agent/src/lib.rs` - public module exports.
+- `/path/to/triplan-agent/src/main.rs` - CLI entrypoint.
+- `/path/to/triplan-agent/src/error.rs` - crate-wide error type and `Result`.
+- `/path/to/triplan-agent/src/cli.rs` - `clap` command definitions and command dispatch.
+- `/path/to/triplan-agent/src/config.rs` - workspace config loading, validation, and default file generation.
+- `/path/to/triplan-agent/src/model.rs` - core ids and runtime domain structs.
+- `/path/to/triplan-agent/src/db.rs` - SQLite pool, migrations, event store, tasks, checkpoints, and queries.
+- `/path/to/triplan-agent/src/provider.rs` - provider trait, mock provider, OpenAI-compatible adapter, DashScope adapter.
+- `/path/to/triplan-agent/src/shadowbox.rs` - path boundary, env policy, command policy, and output truncation.
+- `/path/to/triplan-agent/src/tools.rs` - tool trait, registry, built-in tools.
+- `/path/to/triplan-agent/src/skills.rs` - `.triplan-agent/skills` metadata and progressive loading.
+- `/path/to/triplan-agent/src/mcp.rs` - stdio MCP process wrapper and minimal JSON-RPC tool invocation.
+- `/path/to/triplan-agent/src/context.rs` - context patches, reactor trait, patch selection, and compaction.
+- `/path/to/triplan-agent/src/runtime.rs` - scheduler, agent loop, run lifecycle, prompt projection.
+- `/path/to/triplan-agent/tests/cli_init.rs` - CLI init and config smoke tests.
+- `/path/to/triplan-agent/tests/event_store.rs` - SQLite event/checkpoint/task tests.
+- `/path/to/triplan-agent/tests/agent_loop.rs` - mock provider loop tests.
+- `/path/to/triplan-agent/tests/tools.rs` - Shadowbox and tool tests.
+- `/path/to/triplan-agent/tests/multi_agent.rs` - Agent Bus and multi-run tests.
 
 Avoid creating a desktop directory, web app, SDK package, or HTTP MCP transport in v0.1.
 
@@ -102,25 +102,25 @@ Expected:
 
 ```text
 ## main
-?? .agents/
+?? .triplan-agent/
 ?? .codex/
 ```
 
-`docs/` may appear if this plan has not been committed yet. Do not stage `.agents/` or `.codex/`.
+`docs/` may appear if this plan has not been committed yet. Do not stage `.triplan-agent/` or `.codex/`.
 
 ## Task 1: Crate Bootstrap And CLI Skeleton
 
 **Files:**
-- Create: `/Users/BaiGod/Documents/agent-ease/Cargo.toml`
-- Create: `/Users/BaiGod/Documents/agent-ease/src/lib.rs`
-- Create: `/Users/BaiGod/Documents/agent-ease/src/main.rs`
-- Create: `/Users/BaiGod/Documents/agent-ease/src/error.rs`
-- Create: `/Users/BaiGod/Documents/agent-ease/src/cli.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/cli_init.rs`
+- Create: `/path/to/triplan-agent/Cargo.toml`
+- Create: `/path/to/triplan-agent/src/lib.rs`
+- Create: `/path/to/triplan-agent/src/main.rs`
+- Create: `/path/to/triplan-agent/src/error.rs`
+- Create: `/path/to/triplan-agent/src/cli.rs`
+- Test: `/path/to/triplan-agent/tests/cli_init.rs`
 
 - [ ] **Step 1: Write failing CLI version test**
 
-Create `/Users/BaiGod/Documents/agent-ease/tests/cli_init.rs`:
+Create `/path/to/triplan-agent/tests/cli_init.rs`:
 
 ```rust
 use assert_cmd::Command;
@@ -128,11 +128,11 @@ use predicates::prelude::*;
 
 #[test]
 fn cli_prints_version() {
-    let mut cmd = Command::cargo_bin("agent").expect("agent binary exists");
+    let mut cmd = Command::cargo_bin("triplan-agent").expect("triplan-agent binary exists");
     cmd.arg("--version")
         .assert()
         .success()
-        .stdout(predicate::str::contains("agent "));
+        .stdout(predicate::str::contains("triplan-agent "));
 }
 ```
 
@@ -148,11 +148,11 @@ Expected: FAIL because `Cargo.toml` or `agent` binary does not exist.
 
 - [ ] **Step 3: Add crate manifest**
 
-Create `/Users/BaiGod/Documents/agent-ease/Cargo.toml`:
+Create `/path/to/triplan-agent/Cargo.toml`:
 
 ```toml
 [package]
-name = "agent-ease"
+name = "triplan-agent"
 version = "0.1.0"
 edition = "2021"
 
@@ -161,7 +161,7 @@ name = "agent"
 path = "src/main.rs"
 
 [lib]
-name = "agent_ease"
+name = "triplan-agent"
 path = "src/lib.rs"
 
 [dependencies]
@@ -188,7 +188,7 @@ tempfile = "3"
 
 - [ ] **Step 4: Add module exports and error type**
 
-Create `/Users/BaiGod/Documents/agent-ease/src/lib.rs`:
+Create `/path/to/triplan-agent/src/lib.rs`:
 
 ```rust
 pub mod cli;
@@ -205,7 +205,7 @@ pub mod skills;
 pub mod tools;
 ```
 
-Create `/Users/BaiGod/Documents/agent-ease/src/error.rs`:
+Create `/path/to/triplan-agent/src/error.rs`:
 
 ```rust
 use thiserror::Error;
@@ -237,7 +237,7 @@ pub enum AgentError {
 
 - [ ] **Step 5: Add CLI skeleton**
 
-Create `/Users/BaiGod/Documents/agent-ease/src/cli.rs`:
+Create `/path/to/triplan-agent/src/cli.rs`:
 
 ```rust
 use clap::{Parser, Subcommand};
@@ -271,7 +271,7 @@ pub enum Command {
 pub async fn dispatch(cli: Cli) -> Result<()> {
     match cli.command.unwrap_or(Command::Status) {
         Command::Init => {
-            println!("agent init is not implemented yet");
+            println!("triplan-agent init is not implemented yet");
         }
         Command::Chat { agent } => {
             println!("agent chat requested for {agent}");
@@ -286,19 +286,19 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
             println!("agent events: unavailable before init");
         }
         Command::Doctor => {
-            println!("agent doctor: basic CLI is available");
+            println!("triplan-agent doctor: basic CLI is available");
         }
     }
     Ok(())
 }
 ```
 
-Create `/Users/BaiGod/Documents/agent-ease/src/main.rs`:
+Create `/path/to/triplan-agent/src/main.rs`:
 
 ```rust
 use clap::Parser;
 
-use agent_ease::cli::{dispatch, Cli};
+use triplan_agent::cli::{dispatch, Cli};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -319,16 +319,16 @@ Create these empty module files so the crate compiles. Each file should contain 
 Files:
 
 ```text
-/Users/BaiGod/Documents/agent-ease/src/config.rs
-/Users/BaiGod/Documents/agent-ease/src/context.rs
-/Users/BaiGod/Documents/agent-ease/src/db.rs
-/Users/BaiGod/Documents/agent-ease/src/mcp.rs
-/Users/BaiGod/Documents/agent-ease/src/model.rs
-/Users/BaiGod/Documents/agent-ease/src/provider.rs
-/Users/BaiGod/Documents/agent-ease/src/runtime.rs
-/Users/BaiGod/Documents/agent-ease/src/shadowbox.rs
-/Users/BaiGod/Documents/agent-ease/src/skills.rs
-/Users/BaiGod/Documents/agent-ease/src/tools.rs
+/path/to/triplan-agent/src/config.rs
+/path/to/triplan-agent/src/context.rs
+/path/to/triplan-agent/src/db.rs
+/path/to/triplan-agent/src/mcp.rs
+/path/to/triplan-agent/src/model.rs
+/path/to/triplan-agent/src/provider.rs
+/path/to/triplan-agent/src/runtime.rs
+/path/to/triplan-agent/src/shadowbox.rs
+/path/to/triplan-agent/src/skills.rs
+/path/to/triplan-agent/src/tools.rs
 ```
 
 - [ ] **Step 6: Run test to verify CLI skeleton passes**
@@ -350,36 +350,36 @@ git add Cargo.toml src tests/cli_init.rs
 git commit -m "feat: bootstrap agent CLI crate"
 ```
 
-Expected: commit succeeds and `.agents/` / `.codex/` remain untracked.
+Expected: commit succeeds and `.triplan-agent/` / `.codex/` remain untracked.
 
 ## Task 2: Workspace Init And Config Files
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/config.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/cli.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/cli_init.rs`
+- Modify: `/path/to/triplan-agent/src/config.rs`
+- Modify: `/path/to/triplan-agent/src/cli.rs`
+- Test: `/path/to/triplan-agent/tests/cli_init.rs`
 
-- [ ] **Step 1: Add failing `agent init` test**
+- [ ] **Step 1: Add failing `triplan-agent init` test**
 
-Append to `/Users/BaiGod/Documents/agent-ease/tests/cli_init.rs`:
+Append to `/path/to/triplan-agent/tests/cli_init.rs`:
 
 ```rust
 #[test]
 fn init_creates_workspace_files() {
     let temp = tempfile::tempdir().expect("tempdir");
-    let mut cmd = Command::cargo_bin("agent").expect("agent binary exists");
+    let mut cmd = Command::cargo_bin("triplan-agent").expect("triplan-agent binary exists");
     cmd.current_dir(temp.path())
         .arg("init")
         .assert()
         .success()
-        .stdout(predicate::str::contains("initialized agent workspace"));
+        .stdout(predicate::str::contains("initialized triplan-agent workspace"));
 
-    assert!(temp.path().join(".agents/config.toml").is_file());
-    assert!(temp.path().join(".agents/agents/lead.toml").is_file());
-    assert!(temp.path().join(".agents/agents/default.toml").is_file());
-    assert!(temp.path().join(".agents/prompts/compact/default.md").is_file());
-    assert!(temp.path().join(".agents/mcp.toml").is_file());
-    assert!(temp.path().join(".agents/shadowbox.toml").is_file());
+    assert!(temp.path().join(".triplan-agent/config.toml").is_file());
+    assert!(temp.path().join(".triplan-agent/agents/lead.toml").is_file());
+    assert!(temp.path().join(".triplan-agent/agents/default.toml").is_file());
+    assert!(temp.path().join(".triplan-agent/prompts/compact/default.md").is_file());
+    assert!(temp.path().join(".triplan-agent/mcp.toml").is_file());
+    assert!(temp.path().join(".triplan-agent/shadowbox.toml").is_file());
 }
 ```
 
@@ -391,11 +391,11 @@ Run:
 cargo test --test cli_init init_creates_workspace_files -- --nocapture
 ```
 
-Expected: FAIL because `agent init` still prints a temporary message and creates no files.
+Expected: FAIL because `triplan-agent init` still prints a temporary message and creates no files.
 
 - [ ] **Step 3: Implement config generation**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/config.rs` with:
+Replace `/path/to/triplan-agent/src/config.rs` with:
 
 ```rust
 use std::path::{Path, PathBuf};
@@ -416,10 +416,10 @@ pub struct WorkspaceConfig {
 impl Default for WorkspaceConfig {
     fn default() -> Self {
         Self {
-            workspace_name: "agent-workspace".to_string(),
+            workspace_name: "triplan-agent".to_string(),
             default_agent: "default".to_string(),
             default_provider: "mock".to_string(),
-            database_path: ".agents/agent.db".to_string(),
+            database_path: ".triplan-agent/agent.db".to_string(),
         }
     }
 }
@@ -435,16 +435,16 @@ pub struct AgentProfileConfig {
     pub mcp_servers: Vec<String>,
 }
 
-pub fn agents_dir(workspace: &Path) -> PathBuf {
-    workspace.join(".agents")
+pub fn triplan_dir(workspace: &Path) -> PathBuf {
+    workspace.join(".triplan-agent")
 }
 
 pub fn config_path(workspace: &Path) -> PathBuf {
-    agents_dir(workspace).join("config.toml")
+    triplan_dir(workspace).join("config.toml")
 }
 
 pub async fn init_workspace(workspace: &Path) -> Result<()> {
-    let root = agents_dir(workspace);
+    let root = triplan_dir(workspace);
     fs::create_dir_all(root.join("agents")).await?;
     fs::create_dir_all(root.join("skills")).await?;
     fs::create_dir_all(root.join("prompts/compact")).await?;
@@ -539,14 +539,14 @@ Include:
 "#;
 ```
 
-- [ ] **Step 4: Wire `agent init`**
+- [ ] **Step 4: Wire `triplan-agent init`**
 
-Modify the `Command::Init` arm in `/Users/BaiGod/Documents/agent-ease/src/cli.rs`:
+Modify the `Command::Init` arm in `/path/to/triplan-agent/src/cli.rs`:
 
 ```rust
 Command::Init => {
     crate::config::init_workspace(&std::env::current_dir()?).await?;
-    println!("initialized agent workspace");
+    println!("initialized triplan-agent workspace");
 }
 ```
 
@@ -574,17 +574,17 @@ Expected: commit succeeds.
 ## Task 3: SQLite Schema And Event Store
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/model.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/db.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/event_store.rs`
+- Modify: `/path/to/triplan-agent/src/model.rs`
+- Modify: `/path/to/triplan-agent/src/db.rs`
+- Test: `/path/to/triplan-agent/tests/event_store.rs`
 
 - [ ] **Step 1: Write failing event append test**
 
-Create `/Users/BaiGod/Documents/agent-ease/tests/event_store.rs`:
+Create `/path/to/triplan-agent/tests/event_store.rs`:
 
 ```rust
-use agent_ease::db::{connect_sqlite, migrate, EventStore};
-use agent_ease::model::{EventPayload, EventType};
+use triplan_agent::db::{connect_sqlite, migrate, EventStore};
+use triplan_agent::model::{EventPayload, EventType};
 use serde_json::json;
 
 #[tokio::test]
@@ -638,7 +638,7 @@ Expected: FAIL because `db` and `model` are empty.
 
 - [ ] **Step 3: Add domain model types**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/model.rs` with:
+Replace `/path/to/triplan-agent/src/model.rs` with:
 
 ```rust
 use chrono::{DateTime, Utc};
@@ -726,7 +726,7 @@ pub struct EventRecord {
 
 - [ ] **Step 4: Implement SQLite migration and event store**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/db.rs` with:
+Replace `/path/to/triplan-agent/src/db.rs` with:
 
 ```rust
 use chrono::{DateTime, Utc};
@@ -943,16 +943,16 @@ Expected: commit succeeds.
 ## Task 4: Checkpoints And Task Leases
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/model.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/db.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/event_store.rs`
+- Modify: `/path/to/triplan-agent/src/model.rs`
+- Modify: `/path/to/triplan-agent/src/db.rs`
+- Test: `/path/to/triplan-agent/tests/event_store.rs`
 
 - [ ] **Step 1: Add failing checkpoint and lease tests**
 
-Append to `/Users/BaiGod/Documents/agent-ease/tests/event_store.rs`:
+Append to `/path/to/triplan-agent/tests/event_store.rs`:
 
 ```rust
-use agent_ease::db::{CheckpointStore, TaskStore};
+use triplan_agent::db::{CheckpointStore, TaskStore};
 
 #[tokio::test]
 async fn checkpoint_round_trips_projection() {
@@ -1005,7 +1005,7 @@ Expected: FAIL because `CheckpointStore` and `TaskStore` are missing.
 
 - [ ] **Step 3: Extend model types**
 
-Append to `/Users/BaiGod/Documents/agent-ease/src/model.rs`:
+Append to `/path/to/triplan-agent/src/model.rs`:
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1032,7 +1032,7 @@ pub struct TaskRecord {
 
 - [ ] **Step 4: Add migrations for checkpoints and tasks**
 
-In `/Users/BaiGod/Documents/agent-ease/src/db.rs`, add these `CREATE TABLE` statements inside `migrate` after the events index:
+In `/path/to/triplan-agent/src/db.rs`, add these `CREATE TABLE` statements inside `migrate` after the events index:
 
 ```rust
 sqlx::query(
@@ -1079,7 +1079,7 @@ sqlx::query(
 
 - [ ] **Step 5: Implement stores**
 
-Append to `/Users/BaiGod/Documents/agent-ease/src/db.rs`:
+Append to `/path/to/triplan-agent/src/db.rs`:
 
 ```rust
 use crate::model::{CheckpointRecord, TaskRecord};
@@ -1260,18 +1260,18 @@ Expected: commit succeeds.
 ## Task 5: Provider Trait And Mock Agent Loop
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/provider.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/runtime.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/agent_loop.rs`
+- Modify: `/path/to/triplan-agent/src/provider.rs`
+- Modify: `/path/to/triplan-agent/src/runtime.rs`
+- Test: `/path/to/triplan-agent/tests/agent_loop.rs`
 
 - [ ] **Step 1: Write failing agent loop test**
 
-Create `/Users/BaiGod/Documents/agent-ease/tests/agent_loop.rs`:
+Create `/path/to/triplan-agent/tests/agent_loop.rs`:
 
 ```rust
-use agent_ease::db::{connect_sqlite, migrate, EventStore};
-use agent_ease::provider::MockProvider;
-use agent_ease::runtime::AgentLoop;
+use triplan_agent::db::{connect_sqlite, migrate, EventStore};
+use triplan_agent::provider::MockProvider;
+use triplan_agent::runtime::AgentLoop;
 
 #[tokio::test]
 async fn mock_agent_loop_records_assistant_message() {
@@ -1303,7 +1303,7 @@ Expected: FAIL because provider and runtime loop do not exist.
 
 - [ ] **Step 3: Implement provider trait and mock provider**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/provider.rs` with:
+Replace `/path/to/triplan-agent/src/provider.rs` with:
 
 ```rust
 use async_trait::async_trait;
@@ -1357,7 +1357,7 @@ impl LlmProvider for MockProvider {
 
 - [ ] **Step 4: Implement minimal agent loop**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/runtime.rs` with:
+Replace `/path/to/triplan-agent/src/runtime.rs` with:
 
 ```rust
 use serde_json::json;
@@ -1484,17 +1484,17 @@ Expected: commit succeeds.
 ## Task 6: Shadowbox And File/Search Tools
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/shadowbox.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/tools.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/tools.rs`
+- Modify: `/path/to/triplan-agent/src/shadowbox.rs`
+- Modify: `/path/to/triplan-agent/src/tools.rs`
+- Test: `/path/to/triplan-agent/tests/tools.rs`
 
 - [ ] **Step 1: Write failing Shadowbox path test**
 
-Create `/Users/BaiGod/Documents/agent-ease/tests/tools.rs`:
+Create `/path/to/triplan-agent/tests/tools.rs`:
 
 ```rust
-use agent_ease::shadowbox::Shadowbox;
-use agent_ease::tools::{FileReadTool, SearchTool, Tool};
+use triplan_agent::shadowbox::Shadowbox;
+use triplan_agent::tools::{FileReadTool, SearchTool, Tool};
 use serde_json::json;
 
 #[tokio::test]
@@ -1544,7 +1544,7 @@ Expected: FAIL because Shadowbox and tools are empty.
 
 - [ ] **Step 3: Implement Shadowbox path boundary**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/shadowbox.rs` with:
+Replace `/path/to/triplan-agent/src/shadowbox.rs` with:
 
 ```rust
 use std::path::{Path, PathBuf};
@@ -1605,7 +1605,7 @@ impl Shadowbox {
 
 - [ ] **Step 4: Implement tool trait, file read, and search**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/tools.rs` with:
+Replace `/path/to/triplan-agent/src/tools.rs` with:
 
 ```rust
 use async_trait::async_trait;
@@ -1705,17 +1705,17 @@ Expected: commit succeeds.
 ## Task 7: Bash Tool, Tool Audit, And Stale Edit Guard
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/model.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/db.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/tools.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/tools.rs`
+- Modify: `/path/to/triplan-agent/src/model.rs`
+- Modify: `/path/to/triplan-agent/src/db.rs`
+- Modify: `/path/to/triplan-agent/src/tools.rs`
+- Test: `/path/to/triplan-agent/tests/tools.rs`
 
 - [ ] **Step 1: Add failing tests for bash and stale edit**
 
-Append to `/Users/BaiGod/Documents/agent-ease/tests/tools.rs`:
+Append to `/path/to/triplan-agent/tests/tools.rs`:
 
 ```rust
-use agent_ease::tools::{BashTool, FileEditTool, FileState};
+use triplan_agent::tools::{BashTool, FileEditTool, FileState};
 
 #[tokio::test]
 async fn bash_runs_with_timeout_and_output() {
@@ -1757,7 +1757,7 @@ Expected: FAIL because `BashTool`, `FileState`, and `FileEditTool` are missing.
 
 - [ ] **Step 3: Implement bash and stale edit types**
 
-Append to `/Users/BaiGod/Documents/agent-ease/src/tools.rs`:
+Append to `/path/to/triplan-agent/src/tools.rs`:
 
 ```rust
 use std::path::{Path, PathBuf};
@@ -1854,7 +1854,7 @@ impl Tool for FileEditTool {
 
 - [ ] **Step 4: Add tool invocation audit migration**
 
-Extend `/Users/BaiGod/Documents/agent-ease/src/db.rs` migration with:
+Extend `/path/to/triplan-agent/src/db.rs` migration with:
 
 ```rust
 sqlx::query(
@@ -1900,20 +1900,20 @@ Expected: commit succeeds.
 ## Task 8: Skills Registry
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/skills.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/tools.rs`
+- Modify: `/path/to/triplan-agent/src/skills.rs`
+- Test: `/path/to/triplan-agent/tests/tools.rs`
 
 - [ ] **Step 1: Add failing skill discovery test**
 
-Append to `/Users/BaiGod/Documents/agent-ease/tests/tools.rs`:
+Append to `/path/to/triplan-agent/tests/tools.rs`:
 
 ```rust
-use agent_ease::skills::SkillRegistry;
+use triplan_agent::skills::SkillRegistry;
 
 #[tokio::test]
 async fn skill_registry_loads_metadata_progressively() {
     let temp = tempfile::tempdir().expect("tempdir");
-    let skill_dir = temp.path().join(".agents/skills/review");
+    let skill_dir = temp.path().join(".triplan-agent/skills/review");
     tokio::fs::create_dir_all(&skill_dir).await.expect("mkdir");
     tokio::fs::write(
         skill_dir.join("SKILL.md"),
@@ -1940,7 +1940,7 @@ Expected: FAIL because `SkillRegistry` is missing.
 
 - [ ] **Step 3: Implement skills registry**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/skills.rs` with:
+Replace `/path/to/triplan-agent/src/skills.rs` with:
 
 ```rust
 use std::path::{Path, PathBuf};
@@ -1971,7 +1971,7 @@ pub struct SkillRegistry {
 
 impl SkillRegistry {
     pub async fn scan(workspace: &Path) -> Result<Self> {
-        let root = workspace.join(".agents/skills");
+        let root = workspace.join(".triplan-agent/skills");
         let mut skills = Vec::new();
         if !root.exists() {
             return Ok(Self { skills });
@@ -2057,17 +2057,17 @@ Expected: commit succeeds.
 ## Task 9: Agent Bus And Context Patches
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/context.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/db.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/multi_agent.rs`
+- Modify: `/path/to/triplan-agent/src/context.rs`
+- Modify: `/path/to/triplan-agent/src/db.rs`
+- Test: `/path/to/triplan-agent/tests/multi_agent.rs`
 
 - [ ] **Step 1: Write failing Agent Bus test**
 
-Create `/Users/BaiGod/Documents/agent-ease/tests/multi_agent.rs`:
+Create `/path/to/triplan-agent/tests/multi_agent.rs`:
 
 ```rust
-use agent_ease::context::{AgentBus, ContextPatchStore};
-use agent_ease::db::{connect_sqlite, migrate};
+use triplan_agent::context::{AgentBus, ContextPatchStore};
+use triplan_agent::db::{connect_sqlite, migrate};
 
 #[tokio::test]
 async fn agent_message_becomes_context_patch() {
@@ -2098,7 +2098,7 @@ Expected: FAIL because Agent Bus and patches are missing.
 
 - [ ] **Step 3: Add context patch tables**
 
-Extend `migrate` in `/Users/BaiGod/Documents/agent-ease/src/db.rs`:
+Extend `migrate` in `/path/to/triplan-agent/src/db.rs`:
 
 ```rust
 sqlx::query(
@@ -2138,7 +2138,7 @@ sqlx::query(
 
 - [ ] **Step 4: Implement Agent Bus and patch store**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/context.rs` with:
+Replace `/path/to/triplan-agent/src/context.rs` with:
 
 ```rust
 use chrono::Utc;
@@ -2284,16 +2284,16 @@ Expected: commit succeeds.
 ## Task 10: Manual Compaction Engine
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/context.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/cli.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/agent_loop.rs`
+- Modify: `/path/to/triplan-agent/src/context.rs`
+- Modify: `/path/to/triplan-agent/src/cli.rs`
+- Test: `/path/to/triplan-agent/tests/agent_loop.rs`
 
 - [ ] **Step 1: Add failing compaction test**
 
-Append to `/Users/BaiGod/Documents/agent-ease/tests/agent_loop.rs`:
+Append to `/path/to/triplan-agent/tests/agent_loop.rs`:
 
 ```rust
-use agent_ease::context::CompactionEngine;
+use triplan_agent::context::CompactionEngine;
 
 #[tokio::test]
 async fn compaction_preserves_current_work_sections() {
@@ -2320,7 +2320,7 @@ Expected: FAIL because `CompactionEngine` is missing.
 
 - [ ] **Step 3: Implement deterministic compaction formatter**
 
-Append to `/Users/BaiGod/Documents/agent-ease/src/context.rs`:
+Append to `/path/to/triplan-agent/src/context.rs`:
 
 ```rust
 pub struct CompactionEngine;
@@ -2337,7 +2337,7 @@ impl CompactionEngine {
 
 - [ ] **Step 4: Add CLI compact command skeleton**
 
-Extend `/Users/BaiGod/Documents/agent-ease/src/cli.rs` command enum:
+Extend `/path/to/triplan-agent/src/cli.rs` command enum:
 
 ```rust
 Compact {
@@ -2378,15 +2378,15 @@ Expected: commit succeeds.
 ## Task 11: Stdio MCP Bridge Foundation
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/mcp.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/tools.rs`
+- Modify: `/path/to/triplan-agent/src/mcp.rs`
+- Test: `/path/to/triplan-agent/tests/tools.rs`
 
 - [ ] **Step 1: Add failing MCP JSON-RPC shape test**
 
-Append to `/Users/BaiGod/Documents/agent-ease/tests/tools.rs`:
+Append to `/path/to/triplan-agent/tests/tools.rs`:
 
 ```rust
-use agent_ease::mcp::McpRequest;
+use triplan_agent::mcp::McpRequest;
 
 #[test]
 fn mcp_request_serializes_json_rpc() {
@@ -2410,7 +2410,7 @@ Expected: FAIL because `McpRequest` is missing.
 
 - [ ] **Step 3: Implement MCP request type**
 
-Replace `/Users/BaiGod/Documents/agent-ease/src/mcp.rs` with:
+Replace `/path/to/triplan-agent/src/mcp.rs` with:
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -2467,19 +2467,19 @@ Expected: commit succeeds.
 ## Task 12: CLI Status, Events, Doctor, And Acceptance Smoke
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/cli.rs`
-- Modify: `/Users/BaiGod/Documents/agent-ease/src/db.rs`
-- Test: `/Users/BaiGod/Documents/agent-ease/tests/cli_init.rs`
+- Modify: `/path/to/triplan-agent/src/cli.rs`
+- Modify: `/path/to/triplan-agent/src/db.rs`
+- Test: `/path/to/triplan-agent/tests/cli_init.rs`
 
 - [ ] **Step 1: Add failing CLI smoke tests**
 
-Append to `/Users/BaiGod/Documents/agent-ease/tests/cli_init.rs`:
+Append to `/path/to/triplan-agent/tests/cli_init.rs`:
 
 ```rust
 #[test]
 fn doctor_reports_basic_checks() {
     let temp = tempfile::tempdir().expect("tempdir");
-    let mut cmd = Command::cargo_bin("agent").expect("agent binary exists");
+    let mut cmd = Command::cargo_bin("triplan-agent").expect("triplan-agent binary exists");
     cmd.current_dir(temp.path())
         .arg("doctor")
         .assert()
@@ -2490,19 +2490,19 @@ fn doctor_reports_basic_checks() {
 #[test]
 fn status_reports_workspace_after_init() {
     let temp = tempfile::tempdir().expect("tempdir");
-    Command::cargo_bin("agent")
-        .expect("agent binary exists")
+    Command::cargo_bin("triplan-agent")
+        .expect("triplan-agent binary exists")
         .current_dir(temp.path())
         .arg("init")
         .assert()
         .success();
-    Command::cargo_bin("agent")
-        .expect("agent binary exists")
+    Command::cargo_bin("triplan-agent")
+        .expect("triplan-agent binary exists")
         .current_dir(temp.path())
         .arg("status")
         .assert()
         .success()
-        .stdout(predicate::str::contains("workspace: agent-workspace"));
+        .stdout(predicate::str::contains("workspace: triplan-agent"));
 }
 ```
 
@@ -2518,7 +2518,7 @@ Expected: FAIL because `doctor` and `status` output still use temporary messages
 
 - [ ] **Step 3: Implement status and doctor output**
 
-Modify `/Users/BaiGod/Documents/agent-ease/src/cli.rs`:
+Modify `/path/to/triplan-agent/src/cli.rs`:
 
 ```rust
 Command::Status => {
@@ -2530,7 +2530,7 @@ Command::Status => {
 }
 Command::Doctor => {
     println!("CLI: ok");
-    println!("SQLite: configured after agent init");
+    println!("SQLite: configured after triplan-agent init");
     println!("MCP: stdio transport planned");
     println!("Shadowbox: soft sandbox policy enabled after init");
 }
@@ -2572,8 +2572,8 @@ Expected: commit succeeds.
 ## Task 13: Final Verification Against Spec
 
 **Files:**
-- Modify: `/Users/BaiGod/Documents/agent-ease/docs/superpowers/specs/2026-06-06-agent-runtime-kernel-design.md` only if verification finds a spec wording mismatch.
-- Modify: `/Users/BaiGod/Documents/agent-ease/docs/superpowers/plans/2026-06-06-agent-runtime-kernel-v0-1.md` only if a plan step is proven incorrect during execution.
+- Modify: `/path/to/triplan-agent/docs/superpowers/specs/2026-06-06-agent-runtime-kernel-design.md` only if verification finds a spec wording mismatch.
+- Modify: `/path/to/triplan-agent/docs/superpowers/plans/2026-06-06-agent-runtime-kernel-v0-1.md` only if a plan step is proven incorrect during execution.
 
 - [ ] **Step 1: Run all tests**
 
@@ -2591,22 +2591,22 @@ Run:
 
 ```bash
 tmpdir="$(mktemp -d)"
-cargo build --bin agent --manifest-path /Users/BaiGod/Documents/agent-ease/Cargo.toml
+cargo build --bin triplan-agent --manifest-path /path/to/triplan-agent/Cargo.toml
 cd "$tmpdir"
-/Users/BaiGod/Documents/agent-ease/target/debug/agent init
-/Users/BaiGod/Documents/agent-ease/target/debug/agent status
-/Users/BaiGod/Documents/agent-ease/target/debug/agent doctor
+/path/to/triplan-agent/target/debug/triplan-agent init
+/path/to/triplan-agent/target/debug/triplan-agent status
+/path/to/triplan-agent/target/debug/triplan-agent doctor
 ```
 
 Expected output includes:
 
 ```text
-initialized agent workspace
-workspace: agent-workspace
+initialized triplan-agent workspace
+workspace: triplan-agent
 CLI: ok
 ```
 
-- [ ] **Step 3: Verify no accidental staging of `.agents` or `.codex`**
+- [ ] **Step 3: Verify no accidental staging of `.triplan-agent` or `.codex`**
 
 Run:
 
@@ -2614,7 +2614,7 @@ Run:
 git status --short
 ```
 
-Expected: `.agents/` and `.codex/` may remain untracked; implementation files should be committed or intentionally staged for the final commit. Do not stage `.agents/` or `.codex/` unless the user explicitly changes scope.
+Expected: `.triplan-agent/` and `.codex/` may remain untracked; implementation files should be committed or intentionally staged for the final commit. Do not stage `.triplan-agent/` or `.codex/` unless the user explicitly changes scope.
 
 - [ ] **Step 4: Commit final docs correction if needed**
 
@@ -2632,7 +2632,7 @@ Expected: commit succeeds only if docs changed. If docs did not change, skip thi
 This foundation plan covers the v0.1 spec as follows:
 
 - CLI-only product: Tasks 1, 2, and 12.
-- Workspace and `.agents/` config: Task 2.
+- Workspace and `.triplan-agent/` config: Task 2.
 - SQLite event log, checkpoint, and task queue: Tasks 3 and 4.
 - Agent profiles: Task 2 creates config files; the completion plan loads and enforces profile-specific tools, skills, model, and policy.
 - Single-agent loop: Task 5.

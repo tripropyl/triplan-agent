@@ -3,7 +3,7 @@
 **Date:** 2026-06-07 11:49:15 CST
 **Branch:** `codex/agent-runtime-kernel-v0-1`
 **Baseline commit before report:** `b267bcf`
-**Workspace:** `/Users/BaiGod/Documents/agent-ease`
+**Workspace:** `/path/to/triplan-agent`
 
 ## Executive Summary
 
@@ -17,9 +17,9 @@ This report documents the expanded verification pass. The expanded pass adds a p
 | --- | --- | --- |
 | Rust test suite | `cargo test` | PASS |
 | Static quality gate | `cargo clippy --all-targets -- -D warnings` | PASS |
-| CLI binary build | `cargo build --bin agent --manifest-path /Users/BaiGod/Documents/agent-ease/Cargo.toml` | PASS |
-| Real temporary workspace CLI smoke | `agent --version`, `agent doctor`, `agent init`, `agent status`, `agent compact ...` | PASS |
-| Workspace file generation | `test -f` checks for `.agents` config/profile/prompt/MCP/shadowbox files | PASS |
+| CLI binary build | `cargo build --bin triplan-agent --manifest-path /path/to/triplan-agent/Cargo.toml` | PASS |
+| Real temporary workspace CLI smoke | `triplan-agent --version`, `triplan-agent doctor`, `triplan-agent init`, `triplan-agent status`, `triplan-agent compact ...` | PASS |
+| Workspace file generation | `test -f` checks for `.triplan-agent` config/profile/prompt/MCP/shadowbox files | PASS |
 | Foundation runtime E2E | `cargo test --test e2e_foundation -- --nocapture` | PASS |
 
 ## Test Suite Evidence
@@ -39,7 +39,7 @@ tests/e2e_foundation.rs: 1 passed
 tests/event_store.rs: 3 passed
 tests/multi_agent.rs: 1 passed
 tests/tools.rs: 7 passed
-Doc-tests agent_ease: 0 failed
+Doc-tests triplan_agent: 0 failed
 ```
 
 Total integration tests: 18 passed, 0 failed.
@@ -64,19 +64,19 @@ Fresh command sequence:
 
 ```bash
 tmpdir="$(mktemp -d)"
-cargo build --bin agent --manifest-path /Users/BaiGod/Documents/agent-ease/Cargo.toml
+cargo build --bin triplan-agent --manifest-path /path/to/triplan-agent/Cargo.toml
 cd "$tmpdir"
-/Users/BaiGod/Documents/agent-ease/target/debug/agent --version
-/Users/BaiGod/Documents/agent-ease/target/debug/agent doctor
-/Users/BaiGod/Documents/agent-ease/target/debug/agent init
-/Users/BaiGod/Documents/agent-ease/target/debug/agent status
-/Users/BaiGod/Documents/agent-ease/target/debug/agent compact "Pending task: verify test report"
-test -f .agents/config.toml
-test -f .agents/agents/default.toml
-test -f .agents/agents/lead.toml
-test -f .agents/prompts/compact/default.md
-test -f .agents/mcp.toml
-test -f .agents/shadowbox.toml
+/path/to/triplan-agent/target/debug/triplan-agent --version
+/path/to/triplan-agent/target/debug/triplan-agent doctor
+/path/to/triplan-agent/target/debug/triplan-agent init
+/path/to/triplan-agent/target/debug/triplan-agent status
+/path/to/triplan-agent/target/debug/triplan-agent compact "Pending task: verify test report"
+test -f .triplan-agent/config.toml
+test -f .triplan-agent/agents/default.toml
+test -f .triplan-agent/agents/lead.toml
+test -f .triplan-agent/prompts/compact/default.md
+test -f .triplan-agent/mcp.toml
+test -f .triplan-agent/shadowbox.toml
 ```
 
 Observed key output:
@@ -84,8 +84,8 @@ Observed key output:
 ```text
 agent 0.1.0
 CLI: ok
-initialized agent workspace
-workspace: agent-workspace
+initialized triplan-agent workspace
+workspace: triplan-agent
 default_agent: default
 default_provider: mock
 CLI_E2E_OK=1
@@ -109,7 +109,7 @@ The foundation E2E test covers:
 - Task enqueue and exclusive lease.
 - Agent Bus message delivery into target-agent context patches.
 - Shadowbox-backed file read, search, stale-safe edit, and bash tool invocation.
-- `.agents/skills` metadata discovery and progressive skill body loading.
+- `.triplan-agent/skills` metadata discovery and progressive skill body loading.
 - Deterministic compaction summary sections.
 - MCP JSON-RPC request shape.
 
@@ -148,8 +148,8 @@ Observed status after the expanded verification commit:
 
 ```text
 ## codex/agent-runtime-kernel-v0-1
-?? .agents/
+?? .triplan-agent/
 ?? .codex/
 ```
 
-Only local untracked `.agents/` and `.codex/` directories remain outside version control.
+Only local untracked `.triplan-agent/` and `.codex/` directories remain outside version control.

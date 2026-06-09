@@ -48,7 +48,7 @@ Updated tests:
 | OpenAI live E2E | `cargo test --test live_provider_e2e openai_live_chat_completion_returns_text -- --ignored --nocapture` | FAILED: available key rejected by OpenAI |
 | MCP stdio lifecycle | Included in `cargo test`; also runnable as `cargo test --test mcp_lifecycle_e2e -- --nocapture` | PASS |
 | Scheduler concurrency stress | Included in `cargo test`; also runnable as `cargo test --test scheduler_stress -- --nocapture` | PASS |
-| CLI default provider/model smoke | `agent init`, `agent status`, grep generated config/profile files | PASS |
+| CLI default provider/model smoke | `triplan-agent init`, `triplan-agent status`, grep generated config/profile files | PASS |
 
 ## Full Test Suite Evidence
 
@@ -70,7 +70,7 @@ tests/mcp_lifecycle_e2e.rs: 1 passed
 tests/multi_agent.rs: 1 passed
 tests/scheduler_stress.rs: 1 passed
 tests/tools.rs: 7 passed
-Doc-tests agent_ease: 0 failed
+Doc-tests triplan_agent: 0 failed
 ```
 
 Non-ignored integration tests: 22 passed, 0 failed.
@@ -186,19 +186,19 @@ Fresh command sequence:
 
 ```bash
 tmpdir="$(mktemp -d)"
-cargo build --bin agent --manifest-path /Users/BaiGod/Documents/agent-ease/Cargo.toml
+cargo build --bin triplan-agent --manifest-path /path/to/triplan-agent/Cargo.toml
 cd "$tmpdir"
-/Users/BaiGod/Documents/agent-ease/target/debug/agent init
-/Users/BaiGod/Documents/agent-ease/target/debug/agent status
-grep -q 'default_provider = "dashscope"' .agents/config.toml
-grep -q 'model = "deepseek-v4-flash"' .agents/agents/default.toml
+/path/to/triplan-agent/target/debug/triplan-agent init
+/path/to/triplan-agent/target/debug/triplan-agent status
+grep -q 'default_provider = "dashscope"' .triplan-agent/config.toml
+grep -q 'model = "deepseek-v4-flash"' .triplan-agent/agents/default.toml
 ```
 
 Observed key output:
 
 ```text
-initialized agent workspace
-workspace: agent-workspace
+initialized triplan-agent workspace
+workspace: triplan-agent
 default_agent: default
 default_provider: dashscope
 CLI_DEFAULTS_OK=1
