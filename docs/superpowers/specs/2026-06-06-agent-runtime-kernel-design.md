@@ -76,14 +76,15 @@ Compaction is event-driven as well. It creates compact boundaries and summary pr
 
 ### Workspace
 
-A `Workspace` is a project folder and runtime boundary. Global user configuration lives under `~/.triplan-agent`, agent-spec configuration lives under `~/.triplan-agent/.agents`, user-owned conversation history lives under `~/.triplan-agent/conversations`, and APP_DATA is reserved for system-owned runtime state and built-in resources:
+A `Workspace` is a project folder and runtime boundary. Triplan-owned user configuration lives under `~/.triplan-agent`, only standard agent assets such as skills live under `~/.triplan-agent/.agents`, user-owned conversation history lives under `~/.triplan-agent/conversations`, and APP_DATA is reserved for system-owned runtime state and built-in resources:
 
 - `~/.triplan-agent/config.toml`
-- `~/.triplan-agent/.agents/agents/*.toml`
+- `~/.triplan-agent/providers.toml`
+- `~/.triplan-agent/agents/*.toml`
 - `~/.triplan-agent/.agents/skills/`
-- `~/.triplan-agent/.agents/mcp.toml`
-- `~/.triplan-agent/.agents/prompts/compact/*.md`
-- `~/.triplan-agent/.agents/shadowbox.toml`
+- `~/.triplan-agent/mcp.toml`
+- `~/.triplan-agent/prompts/compact/*.md`
+- `~/.triplan-agent/shadowbox.toml`
 - `~/.triplan-agent/conversations/<workspace>/<conversation>.md`
 - `APP_DATA/triplan-agent/checkpoints.sqlite3`
 - `APP_DATA/triplan-agent/resources/`
@@ -245,7 +246,7 @@ v0.1 supports:
 - `micro_compact`: removes or summarizes old tool results without full conversation summarization.
 - `post_compact_restore`: restores necessary working state after compaction.
 
-The default compaction template follows the Claude Code style: preserve user intent, technical concepts, files and code sections, errors and fixes, solved problems, all user messages, pending tasks, current work, and next step. The template is configurable under `~/.triplan-agent/.agents/prompts/compact/`.
+The default compaction template follows the Claude Code style: preserve user intent, technical concepts, files and code sections, errors and fixes, solved problems, all user messages, pending tasks, current work, and next step. The template is configurable under `~/.triplan-agent/prompts/compact/`.
 
 Compaction emits events such as `compact_requested`, `compact_started`, `compact_completed`, `compact_failed`, and `compact_boundary_created`.
 
@@ -408,22 +409,22 @@ APP_DATA/triplan-agent/
 ~/.triplan-agent/
   config.toml
   providers.toml
+  mcp.toml
+  shadowbox.toml
+  agents/
+    default.toml
+    lead.toml
+  prompts/
+    compact/
+      default.md
   .agents/
-    agents/
-      default.toml
-      lead.toml
     skills/
-    prompts/
-      compact/
-        default.md
-    mcp.toml
-    shadowbox.toml
   conversations/
     <workspace>/
       <conversation>.md
 ```
 
-Conversation Markdown is user-owned history. Recent files are selected by modification time and can be injected as context before a run, similar in spirit to local coding-agent conversation recall. User-editable LLM provider configuration must remain under `~/.triplan-agent`; MCP, skill, agent profile, prompt, and policy configuration must remain under `~/.triplan-agent/.agents`; none of these belong in APP_DATA.
+Conversation Markdown is user-owned history. Recent files are selected by modification time and can be injected as context before a run, similar in spirit to local coding-agent conversation recall. User-editable LLM provider, MCP, agent profile, prompt, and policy configuration must remain under `~/.triplan-agent`; only standard agent assets such as skills belong under `~/.triplan-agent/.agents`; none of these belong in APP_DATA.
 
 Debug commands should support prompt inspection, event tailing, checkpoint inspection, context patch inspection, tool audit inspection, and JSON output.
 
@@ -521,7 +522,7 @@ CLI smoke tests:
 
 v0.1 is acceptable when it can prove:
 
-- A workspace can initialize all user-owned configuration under `~/.triplan-agent/.agents` and SQLite runtime state under APP_DATA.
+- A workspace can initialize Triplan-owned user configuration under `~/.triplan-agent`, standard agent assets under `~/.triplan-agent/.agents`, and SQLite runtime state under APP_DATA.
 - User conversation history can be written as Markdown under `~/.triplan-agent/conversations` and read back for recent-context injection.
 - At least two agent profiles can be configured.
 - CLI can start a conversation and a run with text streaming and `stream-json` output.

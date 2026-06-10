@@ -7,6 +7,10 @@ struct IsolatedPaths {
     user_agents: PathBuf,
     user_config: PathBuf,
     providers: PathBuf,
+    agent_profiles: PathBuf,
+    prompts: PathBuf,
+    mcp: PathBuf,
+    shadowbox: PathBuf,
     app_data: PathBuf,
 }
 
@@ -17,6 +21,10 @@ fn isolated_paths(temp: &tempfile::TempDir) -> IsolatedPaths {
     IsolatedPaths {
         user_config: user_root.join("config.toml"),
         providers: user_root.join("providers.toml"),
+        agent_profiles: user_root.join("agents"),
+        prompts: user_root.join("prompts"),
+        mcp: user_root.join("mcp.toml"),
+        shadowbox: user_root.join("shadowbox.toml"),
         user_root,
         user_agents,
         app_data,
@@ -66,14 +74,16 @@ fn init_creates_workspace_files() {
     assert!(!paths.user_agents.join("config.toml").exists());
     assert!(paths.providers.is_file());
     assert!(!paths.user_agents.join("providers.toml").exists());
-    assert!(paths.user_agents.join("agents/lead.toml").is_file());
-    assert!(paths.user_agents.join("agents/default.toml").is_file());
-    assert!(paths
-        .user_agents
-        .join("prompts/compact/default.md")
-        .is_file());
-    assert!(paths.user_agents.join("mcp.toml").is_file());
-    assert!(paths.user_agents.join("shadowbox.toml").is_file());
+    assert!(paths.agent_profiles.join("lead.toml").is_file());
+    assert!(paths.agent_profiles.join("default.toml").is_file());
+    assert!(!paths.user_agents.join("agents").exists());
+    assert!(paths.prompts.join("compact/default.md").is_file());
+    assert!(!paths.user_agents.join("prompts").exists());
+    assert!(paths.user_agents.join("skills").is_dir());
+    assert!(paths.mcp.is_file());
+    assert!(!paths.user_agents.join("mcp.toml").exists());
+    assert!(paths.shadowbox.is_file());
+    assert!(!paths.user_agents.join("shadowbox.toml").exists());
     assert!(paths.user_root.join("conversations").is_dir());
     assert!(!paths.app_data.join("config.toml").exists());
     assert!(!paths.app_data.join("providers.toml").exists());
@@ -258,8 +268,8 @@ fn init_defaults_to_dashscope_deepseek_flash() {
 
     let config = std::fs::read_to_string(paths.user_config).expect("user config");
     let providers = std::fs::read_to_string(paths.providers).expect("providers");
-    let default_agent = std::fs::read_to_string(paths.user_agents.join("agents/default.toml"))
-        .expect("default agent");
+    let default_agent =
+        std::fs::read_to_string(paths.agent_profiles.join("default.toml")).expect("default agent");
 
     assert!(config.contains("default_provider = \"dashscope\""));
     assert!(providers.contains("[providers.dashscope]"));
@@ -280,7 +290,7 @@ fn doctor_reports_basic_checks() {
             "User config: stored under ~/.triplan-agent by default",
         ))
         .stdout(predicate::str::contains(
-            "Agent-spec config: stored under ~/.triplan-agent/.agents by default",
+            "Agent assets: only standard assets such as skills live under ~/.triplan-agent/.agents",
         ));
 }
 
@@ -302,7 +312,7 @@ fn status_reports_workspace_after_init() {
         .stdout(predicate::str::contains("user_data:"))
         .stdout(predicate::str::contains("user_config:"))
         .stdout(predicate::str::contains("provider_config:"))
-        .stdout(predicate::str::contains("agent_config:"))
+        .stdout(predicate::str::contains("agent_assets:"))
         .stdout(predicate::str::contains("conversation_history:"))
         .stdout(predicate::str::contains("app_data:"))
         .stdout(predicate::str::contains("checkpoint_db:"));

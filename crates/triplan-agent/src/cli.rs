@@ -227,7 +227,7 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
             println!("user_data: {}", paths.user_root_dir().display());
             println!("user_config: {}", paths.user_config_path().display());
             println!("provider_config: {}", paths.providers_path().display());
-            println!("agent_config: {}", paths.agent_config_dir().display());
+            println!("agent_assets: {}", paths.agent_assets_dir().display());
             println!(
                 "conversation_history: {}",
                 paths.conversation_history_dir().display()
@@ -271,7 +271,7 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
             println!("user_data: {}", paths.user_root_dir().display());
             println!("user_config: {}", paths.user_config_path().display());
             println!("provider_config: {}", paths.providers_path().display());
-            println!("agent_config: {}", paths.agent_config_dir().display());
+            println!("agent_assets: {}", paths.agent_assets_dir().display());
             println!(
                 "conversation_history: {}",
                 paths.conversation_history_dir().display()
@@ -288,7 +288,7 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
         Command::Doctor => {
             println!("CLI: ok");
             println!("User config: stored under ~/.triplan-agent by default");
-            println!("Agent-spec config: stored under ~/.triplan-agent/.agents by default");
+            println!("Agent assets: only standard assets such as skills live under ~/.triplan-agent/.agents");
             println!(
                 "Conversation history: stored under ~/.triplan-agent/conversations by default"
             );
@@ -385,7 +385,7 @@ async fn dispatch_run(args: RunArgs) -> Result<()> {
                 println!("initialized triplan-agent environment");
                 println!("user_config: {}", paths.user_config_path().display());
                 println!("provider_config: {}", paths.providers_path().display());
-                println!("agent_config: {}", paths.agent_config_dir().display());
+                println!("agent_assets: {}", paths.agent_assets_dir().display());
             }
             println!("agent run requested for {}: {prompt}", args.agent);
             if let Some(path) = &history_path {
@@ -406,7 +406,7 @@ async fn dispatch_run(args: RunArgs) -> Result<()> {
                     "type": "environment_initialized",
                     "user_config": paths.user_config_path(),
                     "provider_config": paths.providers_path(),
-                    "agent_config": paths.agent_config_dir(),
+                    "agent_assets": paths.agent_assets_dir(),
                     "app_data": paths.app_data_dir(),
                 }))?;
             }
@@ -818,7 +818,6 @@ fn load_local_env(paths: &crate::config::RuntimePaths) {
         let _ = dotenvy::from_path(path);
     }
     let _ = dotenvy::from_path(paths.user_root_dir().join(".env"));
-    let _ = dotenvy::from_path(paths.agent_config_dir().join(".env"));
 }
 
 fn ancestor_env_files() -> Vec<PathBuf> {

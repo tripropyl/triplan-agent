@@ -6,6 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use tokio::fs;
+use walkdir::WalkDir;
 
 use crate::error::{AgentError, Result};
 
@@ -76,12 +77,12 @@ impl RuntimePaths {
         &self.user_agents_dir
     }
 
-    pub fn user_config_dir(&self) -> &Path {
-        &self.user_root_dir
+    pub fn agent_assets_dir(&self) -> &Path {
+        &self.user_agents_dir
     }
 
-    pub fn agent_config_dir(&self) -> &Path {
-        &self.user_agents_dir
+    pub fn user_config_dir(&self) -> &Path {
+        &self.user_root_dir
     }
 
     pub fn app_data_dir(&self) -> &Path {
@@ -113,14 +114,26 @@ impl RuntimePaths {
     }
 
     pub fn mcp_path(&self) -> PathBuf {
+        self.user_root_dir.join("mcp.toml")
+    }
+
+    pub fn legacy_mcp_path(&self) -> PathBuf {
         self.user_agents_dir.join("mcp.toml")
     }
 
     pub fn shadowbox_path(&self) -> PathBuf {
+        self.user_root_dir.join("shadowbox.toml")
+    }
+
+    pub fn legacy_shadowbox_path(&self) -> PathBuf {
         self.user_agents_dir.join("shadowbox.toml")
     }
 
     pub fn agent_profiles_dir(&self) -> PathBuf {
+        self.user_root_dir.join("agents")
+    }
+
+    pub fn legacy_agent_profiles_dir(&self) -> PathBuf {
         self.user_agents_dir.join("agents")
     }
 
@@ -129,6 +142,10 @@ impl RuntimePaths {
     }
 
     pub fn user_prompts_dir(&self) -> PathBuf {
+        self.user_root_dir.join("prompts")
+    }
+
+    pub fn legacy_user_prompts_dir(&self) -> PathBuf {
         self.user_agents_dir.join("prompts")
     }
 
@@ -206,6 +223,7 @@ pub async fn init_user_data_at(paths: &RuntimePaths) -> Result<()> {
     write_toml_if_missing(&paths.user_config_path(), &WorkspaceConfig::default()).await?;
     migrate_legacy_provider_config(paths).await?;
     write_if_missing(&paths.providers_path(), DEFAULT_PROVIDERS).await?;
+    migrate_legacy_user_directories(paths).await?;
     write_toml_if_missing(
         &paths.agent_profiles_dir().join("default.toml"),
         &AgentProfileConfig {
@@ -255,12 +273,24 @@ pub async fn init_user_data_at(paths: &RuntimePaths) -> Result<()> {
         USER_COMPACT_PROMPT,
     )
     .await?;
+    migrate_legacy_file(&paths.legacy_mcp_path(), &paths.mcp_path()).await?;
     write_if_missing(&paths.mcp_path(), "[servers]\n").await?;
+    migrate_legacy_file(&paths.legacy_shadowbox_path(), &paths.shadowbox_path()).await?;
     write_if_missing(
         &paths.shadowbox_path(),
         "workspace_boundary = true\ncommand_timeout_seconds = 30\nmax_output_bytes = 65536\n",
     )
     .await?;
+    Ok(())
+}
+
+async fn migrate_legacy_user_directories(paths: &RuntimePaths) -> Result<()> {
+    migrate_legacy_dir_files(
+        &paths.legacy_agent_profiles_dir(),
+        &paths.agent_profiles_dir(),
+    )
+    .await?;
+    migrate_legacy_dir_files(&paths.legacy_user_prompts_dir(), &paths.user_prompts_dir()).await?;
     Ok(())
 }
 
@@ -278,15 +308,38 @@ async fn migrate_legacy_user_config(paths: &RuntimePaths) -> Result<()> {
 }
 
 async fn migrate_legacy_provider_config(paths: &RuntimePaths) -> Result<()> {
-    let provider_path = paths.providers_path();
-    let legacy_path = paths.legacy_providers_path();
-    if provider_path.exists() || !legacy_path.exists() {
+    migrate_legacy_file(&paths.legacy_providers_path(), &paths.providers_path()).await
+}
+
+async fn migrate_legacy_file(legacy_path: &Path, new_path: &Path) -> Result<()> {
+    if new_path.exists() || !legacy_path.exists() {
         return Ok(());
     }
-    if let Some(parent) = provider_path.parent() {
+    if let Some(parent) = new_path.parent() {
         fs::create_dir_all(parent).await?;
     }
-    fs::copy(&legacy_path, &provider_path).await?;
+    fs::copy(legacy_path, new_path).await?;
+    Ok(())
+}
+
+async fn migrate_legacy_dir_files(legacy_dir: &Path, new_dir: &Path) -> Result<()> {
+    if !legacy_dir.exists() {
+        return Ok(());
+    }
+
+    for entry in WalkDir::new(legacy_dir)
+        .into_iter()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().is_file())
+    {
+        let relative_path = entry.path().strip_prefix(legacy_dir).map_err(|err| {
+            AgentError::Config(format!(
+                "could not migrate legacy config path `{}`: {err}",
+                entry.path().display()
+            ))
+        })?;
+        migrate_legacy_file(entry.path(), &new_dir.join(relative_path)).await?;
+    }
     Ok(())
 }
 
