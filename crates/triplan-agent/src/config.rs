@@ -77,6 +77,10 @@ impl RuntimePaths {
     }
 
     pub fn user_config_dir(&self) -> &Path {
+        &self.user_root_dir
+    }
+
+    pub fn agent_config_dir(&self) -> &Path {
         &self.user_agents_dir
     }
 
@@ -93,10 +97,18 @@ impl RuntimePaths {
     }
 
     pub fn user_config_path(&self) -> PathBuf {
+        self.user_root_dir.join("config.toml")
+    }
+
+    pub fn legacy_user_config_path(&self) -> PathBuf {
         self.user_agents_dir.join("config.toml")
     }
 
     pub fn providers_path(&self) -> PathBuf {
+        self.user_root_dir.join("providers.toml")
+    }
+
+    pub fn legacy_providers_path(&self) -> PathBuf {
         self.user_agents_dir.join("providers.toml")
     }
 
@@ -190,7 +202,9 @@ pub async fn init_user_data_at(paths: &RuntimePaths) -> Result<()> {
     fs::create_dir_all(paths.user_compact_prompts_dir()).await?;
     fs::create_dir_all(paths.conversation_history_dir()).await?;
 
+    migrate_legacy_user_config(paths).await?;
     write_toml_if_missing(&paths.user_config_path(), &WorkspaceConfig::default()).await?;
+    migrate_legacy_provider_config(paths).await?;
     write_if_missing(&paths.providers_path(), DEFAULT_PROVIDERS).await?;
     write_toml_if_missing(
         &paths.agent_profiles_dir().join("default.toml"),
@@ -247,6 +261,32 @@ pub async fn init_user_data_at(paths: &RuntimePaths) -> Result<()> {
         "workspace_boundary = true\ncommand_timeout_seconds = 30\nmax_output_bytes = 65536\n",
     )
     .await?;
+    Ok(())
+}
+
+async fn migrate_legacy_user_config(paths: &RuntimePaths) -> Result<()> {
+    let user_config_path = paths.user_config_path();
+    let legacy_path = paths.legacy_user_config_path();
+    if user_config_path.exists() || !legacy_path.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = user_config_path.parent() {
+        fs::create_dir_all(parent).await?;
+    }
+    fs::copy(&legacy_path, &user_config_path).await?;
+    Ok(())
+}
+
+async fn migrate_legacy_provider_config(paths: &RuntimePaths) -> Result<()> {
+    let provider_path = paths.providers_path();
+    let legacy_path = paths.legacy_providers_path();
+    if provider_path.exists() || !legacy_path.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = provider_path.parent() {
+        fs::create_dir_all(parent).await?;
+    }
+    fs::copy(&legacy_path, &provider_path).await?;
     Ok(())
 }
 

@@ -76,9 +76,9 @@ Compaction is event-driven as well. It creates compact boundaries and summary pr
 
 ### Workspace
 
-A `Workspace` is a project folder and runtime boundary. User-owned agent configuration lives under `~/.triplan-agent/.agents`, user-owned conversation history lives under `~/.triplan-agent/conversations`, and APP_DATA is reserved for system-owned runtime state and built-in resources:
+A `Workspace` is a project folder and runtime boundary. Global user configuration lives under `~/.triplan-agent`, agent-spec configuration lives under `~/.triplan-agent/.agents`, user-owned conversation history lives under `~/.triplan-agent/conversations`, and APP_DATA is reserved for system-owned runtime state and built-in resources:
 
-- `~/.triplan-agent/.agents/config.toml`
+- `~/.triplan-agent/config.toml`
 - `~/.triplan-agent/.agents/agents/*.toml`
 - `~/.triplan-agent/.agents/skills/`
 - `~/.triplan-agent/.agents/mcp.toml`
@@ -406,9 +406,9 @@ APP_DATA/triplan-agent/
         default.md
 
 ~/.triplan-agent/
+  config.toml
+  providers.toml
   .agents/
-    config.toml
-    providers.toml
     agents/
       default.toml
       lead.toml
@@ -423,7 +423,7 @@ APP_DATA/triplan-agent/
       <conversation>.md
 ```
 
-Conversation Markdown is user-owned history. Recent files are selected by modification time and can be injected as context before a run, similar in spirit to local coding-agent conversation recall. User-editable LLM provider, MCP, skill, agent profile, prompt, and policy configuration must remain under `~/.triplan-agent/.agents`, never APP_DATA.
+Conversation Markdown is user-owned history. Recent files are selected by modification time and can be injected as context before a run, similar in spirit to local coding-agent conversation recall. User-editable LLM provider configuration must remain under `~/.triplan-agent`; MCP, skill, agent profile, prompt, and policy configuration must remain under `~/.triplan-agent/.agents`; none of these belong in APP_DATA.
 
 Debug commands should support prompt inspection, event tailing, checkpoint inspection, context patch inspection, tool audit inspection, and JSON output.
 

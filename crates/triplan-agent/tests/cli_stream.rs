@@ -27,7 +27,7 @@ async fn run_stream_json_outputs_deltas_and_records_assistant_history() {
     let providers = format!(
         "[providers.local]\nbase_url = \"http://{address}/v1\"\napi_key_env = \"LOCAL_API_KEY\"\n"
     );
-    std::fs::write(user_root.join(".agents/providers.toml"), providers).expect("providers");
+    std::fs::write(user_root.join("providers.toml"), providers).expect("providers");
 
     let server = tokio::spawn(async move {
         let (mut socket, _) = listener.accept().await.expect("accept");
@@ -102,7 +102,7 @@ async fn run_stream_json_loads_api_key_from_user_root_env_file() {
     let providers = format!(
         "[providers.local]\nbase_url = \"http://{address}/v1\"\napi_key_env = \"LOCAL_CREDENTIAL_ENV\"\n"
     );
-    std::fs::write(user_root.join(".agents/providers.toml"), providers).expect("providers");
+    std::fs::write(user_root.join("providers.toml"), providers).expect("providers");
     std::fs::write(
         user_root.join(".env"),
         "LOCAL_CREDENTIAL_ENV=fixture-token\n",

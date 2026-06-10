@@ -100,8 +100,7 @@ Configuration:
 Fresh command shape:
 
 ```bash
-DASHSCOPE_API_KEY=<redacted> \
-  cargo test --test live_provider_e2e dashscope_live_chat_completion_returns_text -- --ignored --nocapture
+cargo test --test live_provider_e2e dashscope_live_chat_completion_returns_text -- --ignored --nocapture
 ```
 
 Observed result:

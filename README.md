@@ -25,7 +25,7 @@ cargo test -p triplan-agent
 cargo run -p triplan-agent -- init
 ```
 
-`triplan-agent init` separates internal runtime state from user-owned files. All user-editable configuration lives under `~/.triplan-agent/.agents`; user-owned conversation history lives under `~/.triplan-agent/conversations`; APP_DATA is reserved for runtime state and built-in resources.
+`triplan-agent init` separates internal runtime state from user-owned files. Global user configuration lives under `~/.triplan-agent`; agent-spec files such as profiles, skills, prompts, MCP, and sandbox policy live under `~/.triplan-agent/.agents`; user-owned conversation history lives under `~/.triplan-agent/conversations`; APP_DATA is reserved for runtime state and built-in resources.
 
 ```text
 APP_DATA/triplan-agent/
@@ -34,9 +34,9 @@ APP_DATA/triplan-agent/
     `-- prompts/
 
 ~/.triplan-agent/
+|-- config.toml
+|-- providers.toml
 |-- .agents/
-|   |-- config.toml
-|   |-- providers.toml
 |   |-- mcp.toml
 |   |-- shadowbox.toml
 |   |-- agents/
@@ -49,7 +49,7 @@ APP_DATA/triplan-agent/
 
 `APP_DATA` follows the host platform conventions, such as `~/Library/Application Support/triplan-agent` on macOS, `$XDG_DATA_HOME/triplan-agent` or `~/.local/share/triplan-agent` on Linux, and `%APPDATA%\triplan-agent` on Windows. Tests and automation can override these roots with `TRIPLAN_AGENT_APP_DATA` and `TRIPLAN_AGENT_HOME`; user configuration still stays under the configured `TRIPLAN_AGENT_HOME`.
 
-Provider credentials can be exported in the shell or stored in a local `.env` file. The CLI loads workspace `.env` files as well as `~/.triplan-agent/.env` and `~/.triplan-agent/.agents/.env`; keep `providers.toml` pointing at environment variable names such as `DASHSCOPE_API_KEY`, not raw key values.
+Provider credentials can be exported in the shell or stored in a local `.env` file. The CLI loads workspace `.env` files as well as `~/.triplan-agent/.env` and `~/.triplan-agent/.agents/.env`; keep `~/.triplan-agent/providers.toml` pointing at environment variable names such as `DASHSCOPE_API_KEY`, not raw key values.
 
 Conversation Markdown can be recorded and recalled for context injection:
 

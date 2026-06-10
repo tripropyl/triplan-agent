@@ -5,6 +5,8 @@ use std::path::PathBuf;
 struct IsolatedPaths {
     user_root: PathBuf,
     user_agents: PathBuf,
+    user_config: PathBuf,
+    providers: PathBuf,
     app_data: PathBuf,
 }
 
@@ -13,6 +15,8 @@ fn isolated_paths(temp: &tempfile::TempDir) -> IsolatedPaths {
     let user_agents = user_root.join(".agents");
     let app_data = temp.path().join("app-data");
     IsolatedPaths {
+        user_config: user_root.join("config.toml"),
+        providers: user_root.join("providers.toml"),
         user_root,
         user_agents,
         app_data,
@@ -58,8 +62,10 @@ fn init_creates_workspace_files() {
         ));
 
     assert!(!temp.path().join(".triplan-agent").exists());
-    assert!(paths.user_agents.join("config.toml").is_file());
-    assert!(paths.user_agents.join("providers.toml").is_file());
+    assert!(paths.user_config.is_file());
+    assert!(!paths.user_agents.join("config.toml").exists());
+    assert!(paths.providers.is_file());
+    assert!(!paths.user_agents.join("providers.toml").exists());
     assert!(paths.user_agents.join("agents/lead.toml").is_file());
     assert!(paths.user_agents.join("agents/default.toml").is_file());
     assert!(paths
@@ -197,8 +203,8 @@ fn workspace_shortcut_lazily_initializes_and_prompts_for_api_key() {
         .stdout(predicate::str::contains("missing API key"))
         .stdout(predicate::str::contains("DASHSCOPE_API_KEY"));
 
-    assert!(paths.user_agents.join("config.toml").is_file());
-    assert!(paths.user_agents.join("providers.toml").is_file());
+    assert!(paths.user_config.is_file());
+    assert!(paths.providers.is_file());
     assert!(paths
         .user_root
         .join("conversations/triplan-agent/default.md")
@@ -218,7 +224,7 @@ fn provider_api_key_env_secret_value_is_reported_without_leaking_secret() {
         .assert()
         .success();
     std::fs::write(
-        paths.user_agents.join("providers.toml"),
+        &paths.providers,
         r#"[providers.dashscope]
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 api_key_env = "sk-test"
@@ -250,10 +256,8 @@ fn init_defaults_to_dashscope_deepseek_flash() {
         .assert()
         .success();
 
-    let config =
-        std::fs::read_to_string(paths.user_agents.join("config.toml")).expect("user config");
-    let providers =
-        std::fs::read_to_string(paths.user_agents.join("providers.toml")).expect("providers");
+    let config = std::fs::read_to_string(paths.user_config).expect("user config");
+    let providers = std::fs::read_to_string(paths.providers).expect("providers");
     let default_agent = std::fs::read_to_string(paths.user_agents.join("agents/default.toml"))
         .expect("default agent");
 
@@ -273,7 +277,10 @@ fn doctor_reports_basic_checks() {
         .success()
         .stdout(predicate::str::contains("CLI: ok"))
         .stdout(predicate::str::contains(
-            "User config: stored under ~/.triplan-agent/.agents by default",
+            "User config: stored under ~/.triplan-agent by default",
+        ))
+        .stdout(predicate::str::contains(
+            "Agent-spec config: stored under ~/.triplan-agent/.agents by default",
         ));
 }
 
@@ -294,6 +301,8 @@ fn status_reports_workspace_after_init() {
         .stdout(predicate::str::contains("workspace: triplan-agent"))
         .stdout(predicate::str::contains("user_data:"))
         .stdout(predicate::str::contains("user_config:"))
+        .stdout(predicate::str::contains("provider_config:"))
+        .stdout(predicate::str::contains("agent_config:"))
         .stdout(predicate::str::contains("conversation_history:"))
         .stdout(predicate::str::contains("app_data:"))
         .stdout(predicate::str::contains("checkpoint_db:"));
